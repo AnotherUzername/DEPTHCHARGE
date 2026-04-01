@@ -444,7 +444,7 @@
             top: 20px;
             left: 20px;
             font-size: 0.9rem;
-            color: #00bcd4;
+            color: #10B981;
             background: rgba(0,0,0,0.6);
             padding: 8px 12px;
             border-radius: 4px;
@@ -473,8 +473,8 @@
             font-weight: bold;
             margin-bottom: 8px;
             background: rgba(0, 188, 212, 0.2);
-            color: #00bcd4;
-            border: 1px solid #00bcd4;
+            color: #10B981;
+            border: 1px solid #10B981;
         }
         
         .log-source {
@@ -1136,7 +1136,6 @@
                            placeholder="Search by name or ID (e.g., T1059, Phishing)..."
                            autocomplete="off"
                            aria-label="Search for tactics and techniques">
-                    <span class="search-icon">&#128269;</span>
                 </div>
                 <div id="search-results" class="search-results" role="listbox" aria-label="Search results"></div>
             </div>
@@ -1331,10 +1330,10 @@
      * Sanitize color values to prevent CSS injection
      */
     function sanitizeColor(color) {
-        if (!color || typeof color !== 'string') return '#00bcd4';
+        if (!color || typeof color !== 'string') return '#10B981';
         // Only allow hex colors
         if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
-            return '#00bcd4';
+            return '#10B981';
         }
         return color;
     }
@@ -2033,7 +2032,7 @@
             <div style="color: #f44336; text-align: center; max-width: 600px; padding: 20px;">
                 <h2 style="margin-bottom: 15px;">Failed to Load MITRE Data</h2>
                 <p style="margin-bottom: 20px;">${escapeHtml(lastError.message)}</p>
-                <button onclick="location.reload()" style="padding: 10px 20px; font-size: 1em; cursor: pointer; background: #00bcd4; border: none; border-radius: 4px; color: #000; font-weight: bold;">
+                <button onclick="location.reload()" style="padding: 10px 20px; font-size: 1em; cursor: pointer; background: #10B981; border: none; border-radius: 4px; color: #000; font-weight: bold;">
                     Retry
                 </button>
             </div>
@@ -2641,7 +2640,7 @@
     }
     
     function getLayerColor(layerId) {
-        const colors = ['#00bcd4', '#4caf50', '#ff9800', '#e91e63', '#9c27b0', '#ffeb3b', '#00e676', '#ff6e40'];
+        const colors = ['#10B981', '#4caf50', '#ff9800', '#e91e63', '#9c27b0', '#ffeb3b', '#00e676', '#ff6e40'];
         return colors[(layerId - 1) % colors.length];
     }
     
@@ -2890,7 +2889,7 @@
         g.append("circle")
             .attr("r", radius / 4)
             .attr("fill", "#0a0a0a")
-            .attr("stroke", "#00bcd4")
+            .attr("stroke", "#10B981")
             .attr("stroke-width", 2)
             .style("cursor", "pointer")
             .on("click", () => clicked(null, root));
@@ -2967,7 +2966,7 @@
         const safeId = escapeHtml(d.data.id || '');
         const safeType = escapeHtml(d.data.type);
         
-        let content = `<div style="font-weight:bold; color:#00bcd4">${safeId}</div>`;
+        let content = `<div style="font-weight:bold; color:#10B981">${safeId}</div>`;
         content += `<div style="font-size:0.8rem">${safeType}</div>`;
         content += `<div>${safeName}</div>`;
         content += `<div style="margin-top:5px; border-top:1px solid #444">Coverage: ${(d.data.score*100).toFixed(0)}%</div>`;
@@ -2977,7 +2976,7 @@
                .style("left", (event.pageX + 15) + "px")
                .style("top", (event.pageY - 28) + "px");
                
-        d3.select(event.currentTarget).attr("stroke", "#00bcd4").attr("stroke-width", 2);
+        d3.select(event.currentTarget).attr("stroke", "#10B981").attr("stroke-width", 2);
     }
 
     function mouseout(event) {

@@ -1180,7 +1180,7 @@
         },
 
         undo: function(title, message, undoCallback) {
-            const notification = this.show(title, message, 'info', null, false);
+            const notification = this.show(title, message, 'info', null, true, 5000);
             const actions = document.createElement('div');
             actions.className = 'notification-actions';
             const undoBtn = document.createElement('button');
@@ -1194,7 +1194,7 @@
             notification.appendChild(actions);
         },
         
-        show: function(title, message, type, details = null, autoDismiss = true) {
+        show: function(title, message, type, details = null, autoDismiss = true, dismissAfterMs = 5000) {
             const notification = document.createElement('div');
             notification.className = `notification notification-${type}`;
             notification.setAttribute('role', 'alert');
@@ -1204,11 +1204,17 @@
                 detailsHtml = `<details><summary>Details</summary><pre>${escapeHtml(JSON.stringify(details, null, 2))}</pre></details>`;
             }
             
-            notification.innerHTML = `
-                <strong>${escapeHtml(title)}</strong>
-                <div>${escapeHtml(message)}</div>
-                ${detailsHtml}
-            `;
+        notification.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                <div style="flex:1;">
+                    <strong>${escapeHtml(title)}</strong>
+                    <div>${escapeHtml(message)}</div>
+                    ${detailsHtml}
+                </div>
+                <button class="notification-btn" style="flex-shrink:0; padding:2px 7px; font-size:1rem; line-height:1;" 
+                        aria-label="Close notification" onclick="this.closest('.notification').remove()">&#x2715;</button>
+            </div>
+        `;
             
             document.body.appendChild(notification);
             
@@ -1222,7 +1228,7 @@
                             document.body.removeChild(notification);
                         }
                     }, 500);
-                }, 8000);
+                }, dismissAfterMs);
             }
             return notification;
         }

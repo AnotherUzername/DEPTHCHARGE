@@ -14,28 +14,243 @@
     <title>MITRE ATT&CK v18 Detection Depth Map - Mobile Ready</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap');
+
         :root {
-            --bg-color: #121212;
-            --text-color: #e0e0e0;
-            --panel-bg: #1e1e1e;
-            --border-color: #333;
-            --accent-color: #00bcd4;
-            --success-color: #2e7d32;
-            --warning-color: #fbc02d;
-            --danger-color: #d32f2f;
-            --focus-ring: 0 0 0 2px var(--accent-color);
+            /* Tactical Slate Palette */
+            --bg-color: #0B0F19;         /* Deep space background */
+            --panel-bg: #131B2B;         /* Slightly lighter slate for panels */
+            --border-color: #23314A;     /* Visible but subtle borders */
+            --border-highlight: #3A4E7A;
+            
+            /* Accents */
+            --accent-color: #10B981;     /* Threat Intelligence Green */
+            --accent-glow: rgba(16, 185, 129, 0.15);
+            --accent-hover: #059669;
+            --text-main: #E2E8F0;
+            --text-muted: #94A3B8;
+            
+            /* Semantic Colors */
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --danger-color: #EF4444;
+            --focus-ring: 0 0 0 2px rgba(16, 185, 129, 0.4);
+
+            /* Typography */
+            --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* Custom Webkit Scrollbars for a polished look */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+
         body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: var(--font-ui);
             background-color: var(--bg-color);
-            color: var(--text-color);
+            color: var(--text-main);
             display: flex;
             height: 100vh;
             overflow: hidden;
+            -webkit-font-smoothing: antialiased;
         }
+
+        /* Tactical Grid Background for the Main View */
+        #main-view {
+            flex: 1;
+            position: relative;
+            background-color: var(--bg-color);
+            background-image: 
+                linear-gradient(rgba(35, 49, 74, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(35, 49, 74, 0.3) 1px, transparent 1px);
+            background-size: 30px 30px;
+            overflow: hidden;
+        }
+
+        #sidebar {
+            width: 380px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+            z-index: 10;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        /* Monospace Numbers for Data/Scores */
+        .score-big { 
+            font-size: 2.5rem; 
+            font-weight: 700; 
+            font-family: var(--font-mono);
+            color: var(--accent-color);
+            text-shadow: 0 0 15px var(--accent-glow);
+        }
+        
+        .score-label { 
+            font-size: 0.70rem; 
+            text-transform: uppercase; 
+            color: var(--text-muted); 
+            letter-spacing: 1.5px; 
+            font-weight: 600;
+        }
+
+        .id-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 2px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            font-weight: bold;
+            margin-bottom: 8px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        /* Modernize Tabs */
+        .tab-header {
+            background-color: #0A0F16;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .tab-button {
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            font-family: var(--font-ui);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tab-button.active {
+            color: var(--text-main);
+            border-bottom-color: var(--accent-color);
+            background: linear-gradient(0deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%);
+        }
+
+        .tab-badge {
+            background: var(--border-highlight);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            border-radius: 4px;
+        }
+        
+        .tab-button.active .tab-badge {
+            background: var(--accent-color);
+            color: #000;
+        }
+
+        /* Input and Search Styling */
+        .search-input {
+            background: rgba(11, 15, 25, 0.5);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            border-radius: 2px;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 1px var(--accent-color);
+            background: rgba(11, 15, 25, 0.8);
+        }
+
+        .search-results {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border-radius: 0 0 2px 2px;
+        }
+
+        .search-result-item:hover, .search-result-item.selected {
+            background: rgba(16, 185, 129, 0.1);
+            border-left: 2px solid var(--accent-color);
+        }
+
+        .search-result-id {
+            font-family: var(--font-mono);
+        }
+
+        /* Sharper Buttons */
+        button {
+            background: var(--border-highlight);
+            color: var(--text-main);
+            border: 1px solid transparent;
+            border-radius: 2px;
+            font-family: var(--font-ui);
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+        }
+
+        button:hover:not(:disabled) { 
+            background: var(--accent-hover); 
+            color: #fff;
+            border-color: var(--accent-color);
+        }
+
+        button.primary, #exportBtn {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--accent-color);
+            color: var(--accent-color);
+        }
+        
+        button.primary:hover, #exportBtn:hover {
+            background: var(--accent-color);
+            color: #000;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        button.danger { 
+            background: rgba(239, 68, 68, 0.1); 
+            border: 1px solid var(--danger-color);
+            color: var(--danger-color); 
+        }
+
+        button.danger:hover {
+            background: var(--danger-color);
+            color: #fff;
+        }
+
+        /* File Drop Zone styling */
+        .file-drop-zone {
+            border: 1px dashed var(--border-highlight);
+            background: rgba(11, 15, 25, 0.3);
+            border-radius: 2px;
+        }
+
+        .file-drop-zone.drag-over {
+            border-color: var(--accent-color);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        /* Tooltip and Notifications */
+        #tooltip {
+            background: rgba(11, 15, 25, 0.95);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(4px);
+            font-family: var(--font-ui);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+            border-radius: 2px;
+        }
+
+        .notification {
+            background: var(--panel-bg);
+            border-left: 3px solid transparent;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            font-family: var(--font-ui);
+        }
+
+        .notification-info { border-left-color: var(--accent-color); }
+        .notification-success { border-left-color: var(--success-color); }
+        .notification-warning { border-left-color: var(--warning-color); }
+        .notification-error { border-left-color: var(--danger-color); }
 
         /* Accessibility Focus Styles */
         button:focus-visible, 

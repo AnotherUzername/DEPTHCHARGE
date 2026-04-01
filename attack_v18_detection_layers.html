@@ -1205,14 +1205,13 @@
             }
             
         notification.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-                <div style="flex:1;">
-                    <strong>${escapeHtml(title)}</strong>
-                    <div>${escapeHtml(message)}</div>
-                    ${detailsHtml}
-                </div>
-                <button class="notification-btn" style="flex-shrink:0; padding:2px 7px; font-size:1rem; line-height:1;" 
-                        aria-label="Close notification" onclick="this.closest('.notification').remove()">&#x2715;</button>
+            <strong>${escapeHtml(title)}</strong>
+            <div>${escapeHtml(message)}</div>
+            ${detailsHtml}
+            <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+                <button class="notification-btn" style="padding:3px 10px; font-size:0.85rem;"
+                        aria-label="Close notification"
+                        onclick="this.closest('.notification').remove()">&#x2715; Close</button>
             </div>
         `;
             

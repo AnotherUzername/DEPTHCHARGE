@@ -11,7 +11,7 @@
                    img-src 'self' data:;
                    object-src 'none';
                    base-uri 'self';">
-    <title>MITRE ATT&CK v18 Detection Depth Map - Mobile Ready</title>
+    <title>MITRE DEPTHCHARGE — ATT&CK v18 Detection Depth Map</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap');
@@ -82,6 +82,33 @@
             z-index: 10;
             overflow: hidden;
             flex-shrink: 0;
+            position: relative;
+        }
+
+        /* Drag handle on the right edge of the sidebar */
+        #sidebar-resize-handle {
+            position: absolute;
+            top: 0;
+            right: -3px;
+            width: 6px;
+            height: 100%;
+            cursor: col-resize;
+            z-index: 100;
+            background: transparent;
+            transition: background 0.15s;
+        }
+
+        #sidebar-resize-handle:hover,
+        #sidebar-resize-handle.dragging {
+            background: var(--accent-color);
+        }
+
+        body.sidebar-dragging {
+            cursor: col-resize;
+            user-select: none;
+        }
+        body.sidebar-dragging * {
+            cursor: col-resize !important;
         }
 
         /* Monospace Numbers for Data/Scores */
@@ -1045,12 +1072,16 @@
             }
 
             #sidebar {
-                width: 100%; /* Full width */
+                width: 100% !important; /* Override JS-set width on mobile */
                 height: 40%; /* Take top 40% of screen */
                 border-right: none;
                 border-bottom: 1px solid var(--border-color);
                 box-shadow: 0 2px 5px rgba(0,0,0,0.5);
                 order: 1; /* Ensure sidebar stays on top */
+            }
+
+            #sidebar-resize-handle {
+                display: none;
             }
 
             #main-view {
@@ -1092,6 +1123,801 @@
                 grid-template-columns: 1fr; /* Stack comparison cards */
             }
         }
+
+        /* ==== Threat Actor Selector / Coverage Panel ==== */
+        .actor-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--accent-color);
+            border-radius: 12px;
+            padding: 4px 8px 4px 10px;
+            margin: 4px 4px 0 0;
+            font-size: 0.8rem;
+            color: var(--text-main);
+            max-width: 100%;
+        }
+
+        .actor-chip-id {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .actor-chip-remove {
+            background: transparent;
+            border: none;
+            color: var(--accent-color);
+            cursor: pointer;
+            padding: 0 0 0 2px;
+            width: auto;
+            font-size: 1rem;
+            line-height: 1;
+            margin: 0;
+            font-weight: bold;
+        }
+
+        .actor-chip-remove:hover {
+            color: var(--danger-color);
+            background: transparent;
+            box-shadow: none;
+        }
+
+        #selected-actors {
+            max-height: 110px;
+            overflow-y: auto;
+            padding: 6px 8px;
+            border: 1px solid var(--border-color);
+            border-top: none;
+            border-radius: 0 0 3px 3px;
+            background: rgba(0, 0, 0, 0.15);
+            margin-top: -6px; /* tuck under the toggle header */
+        }
+
+        .actor-coverage-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .actor-stat {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .actor-stat-label {
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .actor-stat-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            font-family: var(--font-mono);
+            color: var(--text-main);
+            margin-top: 2px;
+            line-height: 1.1;
+        }
+
+        .actor-stat-value.covered { color: var(--success-color); }
+        .actor-stat-value.gap-data { color: var(--warning-color); }
+        .actor-stat-value.gap-no-data { color: var(--danger-color); }
+
+        .actor-coverage-bar {
+            position: relative;
+            height: 18px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .actor-coverage-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--success-color), var(--accent-color));
+            transition: width 0.3s ease;
+        }
+
+        .actor-coverage-bar-label {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 0.75rem;
+            line-height: 18px;
+            color: var(--text-main);
+            font-weight: bold;
+            text-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+            font-family: var(--font-mono);
+        }
+
+        .actor-uncovered-item {
+            padding: 8px 10px;
+            margin-bottom: 4px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 3px solid var(--warning-color);
+            border-radius: 2px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .actor-uncovered-item:hover {
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .actor-uncovered-item.no-data {
+            border-left-color: var(--danger-color);
+        }
+
+        .actor-uncovered-id {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--accent-color);
+            margin-right: 6px;
+            font-weight: bold;
+        }
+
+        .actor-uncovered-name {
+            color: var(--text-main);
+        }
+
+        .actor-uncovered-tag {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .search-result-aliases {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            font-style: italic;
+        }
+
+        .actor-hint {
+            font-size: 0.75rem;
+            color: var(--warning-color);
+            background: rgba(245, 158, 11, 0.08);
+            border-left: 2px solid var(--warning-color);
+            padding: 8px 10px;
+            margin-top: 12px;
+            border-radius: 0 2px 2px 0;
+        }
+
+        /* ==== Threat Actors tab: split into a fixed top pane (search + list)
+               and a scrolling bottom pane (chips + coverage). The actor list
+               can never be pushed off-screen by content below. ==== */
+        #tab-actors.tab-content {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .actor-tab-top {
+            flex-shrink: 0;
+            padding: 20px 20px 10px 20px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            /* The top pane takes up to 60% of the tab height, with the list
+               inside it filling whatever's left after title + search. */
+            max-height: 60%;
+            min-height: 280px;
+            border-bottom: 1px solid var(--border-color);
+            transition: max-height 0.25s ease, min-height 0.25s ease, padding 0.25s ease;
+        }
+
+        .actor-tab-top.collapsed {
+            max-height: 44px;
+            min-height: 44px;
+            padding-top: 10px;
+            padding-bottom: 6px;
+            overflow: hidden;
+        }
+
+        .actor-tab-top.collapsed > *:not(.actor-tab-collapse):not(h1) {
+            visibility: hidden;
+            opacity: 0;
+        }
+
+        .actor-tab-top.collapsed h1 {
+            font-size: 0.8rem;
+            margin: 0;
+            padding-right: 30px;
+        }
+
+        .actor-tab-collapse {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            margin: 0;
+            z-index: 2;
+        }
+
+        .actor-tab-collapse:hover {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+            background: rgba(16, 185, 129, 0.08);
+            box-shadow: none;
+        }
+
+        .actor-tab-collapse-caret {
+            transition: transform 0.2s;
+            line-height: 1;
+        }
+
+        .actor-tab-top.collapsed .actor-tab-collapse-caret {
+            transform: rotate(-90deg);
+        }
+
+        .actor-tab-bottom {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            padding: 12px 20px 20px 20px;
+            min-height: 0; /* allow flex shrink so overflow scrolls */
+        }
+
+        /* The list container fills the remaining height of the top pane */
+        .actor-tab-top .actor-list-container {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* allow flex shrink so inner list scrolls */
+        }
+
+        .actor-tab-top #actor-checkbox-list {
+            flex: 1 1 auto;
+            max-height: none; /* override fixed 320px; let flex sizing decide */
+        }
+
+        /* ==== Actor checkbox / multi-select list ==== */
+        .actor-list-container {
+            margin-top: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        .actor-list-meta {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid var(--border-color);
+            font-family: var(--font-mono);
+            letter-spacing: 0.3px;
+        }
+
+        #actor-checkbox-list {
+            max-height: 320px;
+            overflow-y: auto;
+        }
+
+        .actor-checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            transition: background 0.15s;
+            margin: 0;
+        }
+
+        .actor-checkbox-item:last-child {
+            border-bottom: none;
+        }
+
+        .actor-checkbox-item:hover {
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .actor-checkbox-item.selected {
+            background: rgba(16, 185, 129, 0.12);
+        }
+
+        .actor-checkbox-item:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: -2px;
+        }
+
+        /* CSS-only checkbox indicator — replaces native <input> to avoid
+           browser-specific label/input click-synthesis quirks that were
+           preventing multi-select. State is driven by .selected on the parent. */
+        .actor-checkbox-box {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 1px solid var(--border-highlight);
+            border-radius: 3px;
+            background: rgba(0, 0, 0, 0.35);
+            flex-shrink: 0;
+            position: relative;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .actor-checkbox-item:hover .actor-checkbox-box {
+            border-color: var(--accent-color);
+        }
+
+        .actor-checkbox-item.selected .actor-checkbox-box {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+
+        .actor-checkbox-item.selected .actor-checkbox-box::after {
+            content: '';
+            position: absolute;
+            left: 4px;
+            top: 0px;
+            width: 4px;
+            height: 9px;
+            border: solid #000;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .actor-checkbox-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .actor-checkbox-name {
+            font-size: 0.85rem;
+            color: var(--text-main);
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .actor-checkbox-id {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--accent-color);
+            margin-left: 6px;
+            font-weight: bold;
+        }
+
+        .actor-checkbox-aliases {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            font-style: italic;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .actor-list-empty {
+            padding: 15px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* ==== Detection depth, overlap, and per-tactic breakdown ==== */
+        .actor-depth-line {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-left: 2px solid var(--accent-color);
+            border-radius: 0 3px 3px 0;
+            margin-bottom: 12px;
+            font-family: var(--font-mono);
+            letter-spacing: 0.3px;
+            cursor: help;
+        }
+
+        .actor-depth-line strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .actor-overlap-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .actor-overlap-unique-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 8px;
+            margin-bottom: 4px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 2px;
+            font-size: 0.75rem;
+        }
+
+        .actor-overlap-unique-name {
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 8px;
+        }
+
+        .actor-overlap-unique-count {
+            font-family: var(--font-mono);
+            font-weight: bold;
+            color: var(--accent-color);
+            flex-shrink: 0;
+        }
+
+        .actor-tactic-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 1.4fr auto;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 8px;
+            margin-bottom: 4px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 2px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .actor-tactic-row:hover {
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .actor-tactic-name {
+            color: var(--text-main);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .actor-tactic-bar {
+            position: relative;
+            height: 8px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .actor-tactic-bar-fill {
+            height: 100%;
+            background: var(--success-color);
+            transition: width 0.3s ease;
+        }
+
+        .actor-tactic-meta {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .actor-tactic-meta strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .actor-tactic-row.active-zoom {
+            background: rgba(16, 185, 129, 0.18);
+            outline: 1px solid var(--accent-color);
+        }
+
+        /* ==== Collapsible section pattern (Selected Actors + Per-Tactic) ==== */
+        .actor-collapsible {
+            margin-top: 12px;
+        }
+
+        .actor-collapsible-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            padding: 7px 10px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            cursor: pointer;
+            color: var(--text-main);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            font-weight: 600;
+            margin: 0 0 6px 0;
+        }
+
+        .actor-collapsible-toggle:hover {
+            background: rgba(16, 185, 129, 0.08);
+            border-color: var(--accent-color);
+            box-shadow: none;
+        }
+
+        .actor-collapsible-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .actor-collapsible-count {
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .actor-collapsible-caret {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            transition: transform 0.2s ease;
+        }
+
+        .actor-collapsible-toggle[aria-expanded="false"] .actor-collapsible-caret {
+            transform: rotate(-90deg);
+        }
+
+        .actor-collapsible-body.collapsed {
+            display: none;
+        }
+
+        .actor-collapsible-clear {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0 4px;
+            margin: 0;
+            font-size: 0.7rem;
+            width: auto;
+            text-transform: none;
+            letter-spacing: 0;
+            font-weight: 400;
+        }
+
+        .actor-collapsible-clear:hover {
+            color: var(--accent-color);
+            background: transparent;
+            box-shadow: none;
+        }
+
+        /* ==== Coverage legend + colour blind toggle ==== */
+        .coverage-legend {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 10px 12px;
+            margin-bottom: 15px;
+        }
+
+        .coverage-legend-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .coverage-legend-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.7px;
+            font-weight: 600;
+        }
+
+        .coverage-legend-bar {
+            height: 10px;
+            border-radius: 2px;
+            border: 1px solid rgba(0, 0, 0, 0.4);
+            /* background set at runtime by updateCoverageLegendGradient() */
+        }
+
+        .coverage-legend-ticks {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 4px;
+            font-size: 0.62rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+        }
+
+        /* ==== Settings cog button + modal ==== */
+        #settings-cog {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            border-radius: 50%;
+            background: rgba(11, 15, 25, 0.7);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s, border-color 0.2s, background 0.2s;
+            z-index: 50;
+            backdrop-filter: blur(4px);
+        }
+
+        #settings-cog:hover {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+            background: rgba(16, 185, 129, 0.08);
+            box-shadow: 0 0 12px var(--accent-glow);
+        }
+
+        #settings-cog svg {
+            display: block;
+        }
+
+        #settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #settings-modal.active {
+            display: flex;
+        }
+
+        /* ==== Settings layout (used inside the modal) ==== */
+        .settings-section {
+            margin-bottom: 22px;
+        }
+
+        .settings-section-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.7px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .palette-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            margin-bottom: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .palette-option:hover {
+            background: rgba(16, 185, 129, 0.06);
+        }
+
+        .palette-option input[type="radio"] {
+            accent-color: var(--accent-color);
+            cursor: pointer;
+            flex-shrink: 0;
+            margin: 0;
+        }
+
+        .palette-option-label {
+            flex: 1;
+            font-size: 0.85rem;
+            color: var(--text-main);
+        }
+
+        .palette-option-swatches {
+            display: flex;
+            gap: 2px;
+            flex-shrink: 0;
+        }
+
+        .palette-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 2px;
+            border: 1px solid rgba(0, 0, 0, 0.4);
+        }
+
+        .palette-option:has(input:checked) {
+            border-color: var(--accent-color);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .colour-picker-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .colour-picker-row:last-child {
+            border-bottom: none;
+        }
+
+        .colour-picker-label {
+            font-size: 0.8rem;
+            color: var(--text-main);
+            flex: 1;
+        }
+
+        .colour-picker-label-sub {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: block;
+            margin-top: 1px;
+        }
+
+        .colour-picker-row input[type="color"] {
+            width: 40px;
+            height: 28px;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            cursor: pointer;
+            background: transparent;
+            padding: 0;
+        }
+
+        /* ==== Credits / project links ==== */
+        .credits {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin: -10px 0 18px 0;
+            line-height: 1.5;
+        }
+
+        .credits a {
+            color: var(--accent-color);
+            text-decoration: none;
+            border-bottom: 1px dotted rgba(16, 185, 129, 0.5);
+            font-family: var(--font-mono);
+            transition: color 0.15s, border-color 0.15s;
+        }
+
+        .credits a:hover,
+        .credits a:focus-visible {
+            color: var(--text-main);
+            border-bottom-color: var(--accent-color);
+            outline: none;
+        }
     </style>
 </head>
 <body>
@@ -1103,10 +1929,16 @@
     </div>
 
     <nav id="sidebar" role="navigation" aria-label="Sidebar">
+        <div id="sidebar-resize-handle" role="separator" aria-label="Resize sidebar" aria-orientation="vertical" title="Drag to resize"></div>
         <div class="tab-header" role="tablist">
             <button class="tab-button active" onclick="switchTab('overview')" id="tab-btn-overview" 
                     role="tab" aria-selected="true" aria-controls="tab-overview" tabindex="0">
                 Overview
+            </button>
+            <button class="tab-button" onclick="switchTab('actors')" id="tab-btn-actors"
+                    role="tab" aria-selected="false" aria-controls="tab-actors" tabindex="0">
+                Threat Actors
+                <span class="tab-badge" id="actors-badge" aria-label="0 actors selected">0</span>
             </button>
             <button class="tab-button" onclick="switchTab('layers')" id="tab-btn-layers"
                     role="tab" aria-selected="false" aria-controls="tab-layers" tabindex="0">
@@ -1116,14 +1948,33 @@
         </div>
 
         <div id="tab-overview" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-overview">
-            <h1>DETECTION DEPTH MAP</h1>
-            <div class="subtitle">MITRE ATT&CK v18 Native - Mobile Ready</div>
+            <h1>MITRE DEPTHCHARGE</h1>
+            <div class="subtitle">ATT&amp;CK v18 Detection Depth Map</div>
+            <div class="credits">
+                by
+                <a href="https://github.com/AnotherUzername" target="_blank" rel="noopener noreferrer">@AnotherUzername</a>
+                &amp;
+                <a href="https://github.com/Pr0kythera" target="_blank" rel="noopener noreferrer">@Pr0kythera</a>
+            </div>
 
             <div class="score-card">
                 <div class="score-label">Global Coverage</div>
                 <div class="score-big" id="global-score">0%</div>
                 <div style="margin-top: 5px; font-size: 0.8rem; color: #888;">
                     <span id="active-components">0</span> / <span id="total-components">0</span> Data Components Active
+                </div>
+            </div>
+
+            <div class="coverage-legend">
+                <div class="coverage-legend-header">
+                    <span class="coverage-legend-label">Coverage Scale</span>
+                    <span style="font-size:0.65rem; color:var(--text-muted); letter-spacing:0.3px;">
+                        Settings → Palette
+                    </span>
+                </div>
+                <div class="coverage-legend-bar" id="coverage-legend-bar" aria-hidden="true"></div>
+                <div class="coverage-legend-ticks" aria-hidden="true">
+                    <span>0%</span><span>50%</span><span>100%</span>
                 </div>
             </div>
 
@@ -1163,6 +2014,126 @@
             </div>
         </div>
 
+        <div id="tab-actors" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-actors">
+            <!-- Top pane: title, search, and the actor list. This pane is fixed-height
+                 and CANNOT be pushed off-screen by content below. The actor list
+                 stays visible at all times so the user can pick more actors. -->
+            <div class="actor-tab-top" id="actor-tab-top">
+                <button class="actor-tab-collapse"
+                        onclick="toggleActorFilterPane()"
+                        aria-expanded="true"
+                        aria-controls="actor-tab-top"
+                        title="Collapse / expand filter panel">
+                    <span class="actor-tab-collapse-caret" aria-hidden="true">▾</span>
+                </button>
+                <h1>THREAT ACTORS</h1>
+                <div class="subtitle">Filter the sunburst by intrusion-set technique usage</div>
+
+                <div class="search-container">
+                    <div class="search-label">Filter Actors (Name, Alias, or ID)</div>
+                    <div class="search-input-wrapper">
+                        <input type="text"
+                               id="actor-search"
+                               class="search-input"
+                               placeholder="e.g. APT29, Cozy Bear, G0016..."
+                               autocomplete="off"
+                               aria-label="Filter threat actors">
+                    </div>
+                </div>
+
+                <div class="actor-list-container">
+                    <div id="actor-list-meta" class="actor-list-meta">Loading actors...</div>
+                    <div id="actor-checkbox-list" role="group" aria-label="Threat actors (multi-select)"></div>
+                </div>
+            </div>
+
+            <!-- Bottom pane: chips, controls, coverage. Scrolls independently. -->
+            <div class="actor-tab-bottom">
+                <div id="selected-actors-wrap" class="actor-collapsible" style="display:none;">
+                    <button class="actor-collapsible-toggle" type="button"
+                            onclick="toggleSection('selected-actors')"
+                            aria-expanded="true" aria-controls="selected-actors">
+                        <span class="actor-collapsible-title">
+                            Selected
+                            <span class="actor-collapsible-count" id="selected-actors-count">0</span>
+                        </span>
+                        <span class="actor-collapsible-caret" aria-hidden="true">▾</span>
+                    </button>
+                    <div id="selected-actors" class="actor-collapsible-body" aria-live="polite"></div>
+                </div>
+
+                <div class="control-group">
+                    <button class="secondary" onclick="clearActorFilter()" id="clearActorBtn" style="display:none;">Show All (Clear Filter)</button>
+                </div>
+
+                <div id="actor-no-layers-hint" class="actor-hint" style="display:none;">
+                    Import detection layers in the next tab to see coverage gaps for the selected actor(s).
+                </div>
+
+            <div id="actor-coverage-panel" style="display:none;">
+                <h2>Actor Coverage</h2>
+                <div class="actor-coverage-stats">
+                    <div class="actor-stat">
+                        <span class="actor-stat-label">Techniques used</span>
+                        <span class="actor-stat-value" id="actor-total">0</span>
+                    </div>
+                    <div class="actor-stat">
+                        <span class="actor-stat-label">Covered</span>
+                        <span class="actor-stat-value covered" id="actor-covered">0</span>
+                    </div>
+                    <div class="actor-stat">
+                        <span class="actor-stat-label">Gap · Data avail.</span>
+                        <span class="actor-stat-value gap-data" id="actor-gap-data">0</span>
+                    </div>
+                    <div class="actor-stat">
+                        <span class="actor-stat-label">Gap · No telemetry</span>
+                        <span class="actor-stat-value gap-no-data" id="actor-gap-nodata">0</span>
+                    </div>
+                </div>
+                <div class="actor-coverage-bar" aria-label="Actor coverage percentage">
+                    <div class="actor-coverage-bar-fill" id="actor-coverage-fill" style="width: 0%;"></div>
+                    <div class="actor-coverage-bar-label" id="actor-coverage-percent">0%</div>
+                </div>
+
+                <div id="actor-depth-line" class="actor-depth-line" style="display:none;"
+                     title="Active data components per covered technique. Higher = more corroborating signals."></div>
+
+                <div id="actor-overlap-section" style="display:none;">
+                    <h2>Actor Overlap</h2>
+                    <div class="actor-overlap-stats">
+                        <div class="actor-stat">
+                            <span class="actor-stat-label">Shared across all</span>
+                            <span class="actor-stat-value" id="actor-overlap-intersection">0</span>
+                        </div>
+                        <div class="actor-stat">
+                            <span class="actor-stat-label">Total (union)</span>
+                            <span class="actor-stat-value" id="actor-overlap-union">0</span>
+                        </div>
+                    </div>
+                    <div id="actor-overlap-unique" role="list"></div>
+                </div>
+
+                <div id="actor-tactics-section" class="actor-collapsible" style="display:none;">
+                    <button class="actor-collapsible-toggle" type="button"
+                            onclick="toggleSection('actor-tactics-list')"
+                            aria-expanded="true" aria-controls="actor-tactics-list">
+                        <span class="actor-collapsible-title">Per-Tactic Coverage</span>
+                        <span style="display:flex; align-items:center; gap:8px;">
+                            <span class="actor-collapsible-clear"
+                                  onclick="event.stopPropagation(); clearTacticZoom();"
+                                  title="Reset sunburst zoom" role="button">Reset zoom</span>
+                            <span class="actor-collapsible-caret" aria-hidden="true">▾</span>
+                        </span>
+                    </button>
+                    <div id="actor-tactics-list" class="actor-collapsible-body" role="list"></div>
+                </div>
+
+                <h2>Top Uncovered Techniques</h2>
+                <div id="actor-uncovered-list" role="list"></div>
+            </div>
+            </div><!-- /.actor-tab-bottom -->
+        </div>
+
         <div id="tab-layers" class="tab-content" role="tabpanel" aria-labelledby="tab-btn-layers">
             <h1>DETECTION LAYERS</h1>
             <div class="subtitle">Import and manage detection coverage layers</div>
@@ -1178,6 +2149,10 @@
 
             <div class="control-group">
                 <button onclick="exportActiveLayers()" id="exportBtn">Export Active Layers</button>
+                <button class="primary" onclick="exportCurrentCoverageAsLayer()" id="exportManualBtn"
+                        title="Capture every active data component into a v18 layer JSON">
+                    Export Current Coverage as Layer
+                </button>
                 <button class="button-compare" onclick="showCompareModal()" id="compareBtn" disabled>Compare Layers (2)</button>
                 <button class="secondary" onclick="clearAllLayers()" id="clearBtn">Clear All Layers</button>
             </div>
@@ -1214,14 +2189,140 @@
                 </div>
             </div>
         </div>
+
     </nav>
 
     <main id="main-view" role="main">
         <div id="breadcrumbs" aria-live="polite">ATT&CK Enterprise</div>
+        <button id="settings-cog" type="button"
+                onclick="openSettingsModal()"
+                aria-label="Open settings"
+                title="Settings">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path fill="currentColor" d="M19.14 12.94a7.99 7.99 0 0 0 .05-1.88l2.03-1.58a.5.5 0 0 0 .12-.64l-1.92-3.32a.5.5 0 0 0-.61-.22l-2.39.96a8.1 8.1 0 0 0-1.62-.94l-.36-2.54A.5.5 0 0 0 13.94 2h-3.84a.5.5 0 0 0-.5.42l-.36 2.54a8.1 8.1 0 0 0-1.62.94l-2.39-.96a.5.5 0 0 0-.61.22L2.7 8.48a.5.5 0 0 0 .12.64l2.03 1.58c-.05.62-.05 1.25 0 1.88l-2.03 1.58a.5.5 0 0 0-.12.64l1.92 3.32c.14.24.42.34.67.24l2.33-.94c.5.38 1.05.7 1.62.94l.36 2.54c.04.24.25.42.5.42h3.84c.25 0 .46-.18.5-.42l.36-2.54c.57-.24 1.12-.56 1.62-.94l2.33.94c.25.1.53 0 .67-.24l1.92-3.32a.5.5 0 0 0-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/>
+            </svg>
+        </button>
         <div id="chart"></div>
     </main>
     
     <div id="tooltip" role="tooltip"></div>
+
+    <div id="settings-modal" role="dialog" aria-labelledby="settings-modal-title" aria-modal="true">
+        <div class="compare-content">
+            <div class="compare-header">
+                <h2 id="settings-modal-title">Settings</h2>
+                <button class="close-modal" onclick="closeSettingsModal()" aria-label="Close settings">×</button>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-label">Palette Preset</div>
+                <label class="palette-option">
+                    <input type="radio" name="palette-preset" value="default"
+                           onchange="selectPalettePreset('default')">
+                    <span class="palette-option-label">Default <span style="color:var(--text-muted); font-size:0.75rem;">(traffic light)</span></span>
+                    <span class="palette-option-swatches" aria-hidden="true">
+                        <span class="palette-swatch" style="background:#8B0000;"></span>
+                        <span class="palette-swatch" style="background:#F57C00;"></span>
+                        <span class="palette-swatch" style="background:#388E3C;"></span>
+                    </span>
+                </label>
+                <label class="palette-option">
+                    <input type="radio" name="palette-preset" value="cvd-safe"
+                           onchange="selectPalettePreset('cvd-safe')">
+                    <span class="palette-option-label">CVD-safe <span style="color:var(--text-muted); font-size:0.75rem;">(viridis + Wong)</span></span>
+                    <span class="palette-option-swatches" aria-hidden="true">
+                        <span class="palette-swatch" style="background:#440154;"></span>
+                        <span class="palette-swatch" style="background:#26828E;"></span>
+                        <span class="palette-swatch" style="background:#FDE725;"></span>
+                    </span>
+                </label>
+                <label class="palette-option">
+                    <input type="radio" name="palette-preset" value="dark"
+                           onchange="selectPalettePreset('dark')">
+                    <span class="palette-option-label">High-contrast greyscale</span>
+                    <span class="palette-option-swatches" aria-hidden="true">
+                        <span class="palette-swatch" style="background:#1A1A1A;"></span>
+                        <span class="palette-swatch" style="background:#94A3B8;"></span>
+                        <span class="palette-swatch" style="background:#E2E8F0;"></span>
+                    </span>
+                </label>
+                <label class="palette-option">
+                    <input type="radio" name="palette-preset" value="custom"
+                           onchange="selectPalettePreset('custom')">
+                    <span class="palette-option-label">Custom</span>
+                    <span class="palette-option-swatches" aria-hidden="true">
+                        <span class="palette-swatch" style="background:#666;"></span>
+                    </span>
+                </label>
+            </div>
+
+            <div class="settings-section" id="custom-palette-section" style="display:none;">
+                <div class="settings-section-label">Custom Colours</div>
+                <div class="help-text" style="margin-bottom:8px;">
+                    Coverage gradient is auto-interpolated between the two endpoints (Lab colour space).
+                </div>
+
+                <div class="colour-picker-row">
+                    <div>
+                        <div class="colour-picker-label">Coverage — Low (0%)</div>
+                        <div class="colour-picker-label-sub">Sunburst arcs with no coverage</div>
+                    </div>
+                    <input type="color" id="picker-coverage-low"
+                           oninput="updateCustomColour('coverageLow', this.value)">
+                </div>
+                <div class="colour-picker-row">
+                    <div>
+                        <div class="colour-picker-label">Coverage — High (100%)</div>
+                        <div class="colour-picker-label-sub">Sunburst arcs with full coverage</div>
+                    </div>
+                    <input type="color" id="picker-coverage-high"
+                           oninput="updateCustomColour('coverageHigh', this.value)">
+                </div>
+                <div class="colour-picker-row">
+                    <div>
+                        <div class="colour-picker-label">Success</div>
+                        <div class="colour-picker-label-sub">Covered stat tile, positive diff</div>
+                    </div>
+                    <input type="color" id="picker-success"
+                           oninput="updateCustomColour('success', this.value)">
+                </div>
+                <div class="colour-picker-row">
+                    <div>
+                        <div class="colour-picker-label">Warning</div>
+                        <div class="colour-picker-label-sub">Gap with data, layer warnings</div>
+                    </div>
+                    <input type="color" id="picker-warning"
+                           oninput="updateCustomColour('warning', this.value)">
+                </div>
+                <div class="colour-picker-row">
+                    <div>
+                        <div class="colour-picker-label">Danger</div>
+                        <div class="colour-picker-label-sub">Gap with no telemetry, errors</div>
+                    </div>
+                    <input type="color" id="picker-danger"
+                           oninput="updateCustomColour('danger', this.value)">
+                </div>
+                <div class="colour-picker-row">
+                    <div>
+                        <div class="colour-picker-label">Accent</div>
+                        <div class="colour-picker-label-sub">Brand colour — tabs, buttons, focus</div>
+                    </div>
+                    <input type="color" id="picker-accent"
+                           oninput="updateCustomColour('accent', this.value)">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <button class="secondary" onclick="resetPaletteToDefaults()">Reset to Defaults</button>
+                <button onclick="closeSettingsModal()">Done</button>
+            </div>
+
+            <div class="help-text" style="margin-top:15px;">
+                Preferences are saved to your browser's local storage.
+                CVD-safe is recommended for users with deuteranopia / protanopia / tritanopia.
+            </div>
+        </div>
+    </div>
 
     <div id="compare-modal" role="dialog" aria-labelledby="modal-title" aria-modal="true">
         <div class="compare-content">
@@ -1510,6 +2611,11 @@
     let layerIdCounter = 0;
     let initializationComplete = false;
     let activeTab = 'overview'; // Track active tab
+
+    // Threat actor state (intrusion-set overlay)
+    let threatActors = [];      // [{stixId, id, name, description, aliases, techniqueIds: Set}]
+    let threatActorMap = {};    // stixId -> actor
+    let activeActors = [];      // selected stixIds
     
     // Event handler references to prevent memory leaks
     const eventHandlers = {
@@ -1569,7 +2675,10 @@
     function loadTabPreference() {
         try {
             const savedTab = localStorage.getItem('mitre_v18_active_tab');
-            if (savedTab && (savedTab === 'overview' || savedTab === 'layers')) {
+            // 'settings' is no longer a tab — it became a cog modal. Map legacy
+            // preference back to overview so we don't try to switch to a missing tab.
+            if (savedTab === 'settings') savedTab = 'overview';
+            if (savedTab && (savedTab === 'overview' || savedTab === 'layers' || savedTab === 'actors')) {
                 // Manually set class without calling full switchTab yet if needed
                 activeTab = savedTab;
             }
@@ -1924,9 +3033,11 @@
     // ============================================================================
     
     async function init() {
-        // PRE-LOAD: Set tab before fetching data to prevent flicker
+        // PRE-LOAD: Set tab + palette before fetching data to prevent flicker
         loadTabPreference();
         if (activeTab) switchTab(activeTab);
+        loadPaletteSettings();
+        initSettingsTab();
 
         let lastError = null;
         const urlsToTry = [MITRE_STIX_URL, MITRE_STIX_URL_FALLBACK];
@@ -1998,13 +3109,27 @@
                 }
                 
                 fullDataset = hierarchy;
-                
+
+                // Parse intrusion-sets and their technique relationships
+                parseThreatActors(stixData);
+
                 // Load saved layers from localStorage
                 loadSavedLayers();
-                
+
+                // Restore previously selected actors (depends on threatActorMap)
+                loadActorsFromStorage();
+
                 applyLayersToCoverage();
+
+                // Mark actor scope on the hierarchy before initial draw so opacity is correct
+                computeActorScope(fullDataset, getActorTechniqueSet());
+
                 drawChart(fullDataset);
                 initSearchFunctionality();
+                initActorSelector();
+                renderSelectedActors();
+                renderActorCoveragePanel();
+                loadActorFilterPaneState();
 
                 initializationComplete = true;
                 document.getElementById("loader").style.display = "none";
@@ -2302,7 +3427,764 @@
         
         return root;
     }
-    
+
+    // ============================================================================
+    // THREAT ACTOR (INTRUSION-SET) PARSING & FILTERING
+    // ============================================================================
+
+    /**
+     * Extract intrusion-sets and their "uses" relationships from the STIX bundle.
+     * Populates threatActors / threatActorMap with each actor's name, ATT&CK ID,
+     * aliases and the set of MITRE technique/sub-technique IDs they use.
+     */
+    function parseThreatActors(stixData) {
+        threatActors = [];
+        threatActorMap = {};
+        if (!stixData || !Array.isArray(stixData.objects)) return;
+
+        const liveObjects = stixData.objects.filter(o => !o.revoked && !o.x_mitre_deprecated);
+
+        // Local id -> object map (parseStixToHierarchy's window.stixObjectMap excludes deprecated, same scope)
+        const objectMap = {};
+        liveObjects.forEach(o => { objectMap[o.id] = o; });
+
+        const intrusionSets = liveObjects.filter(o => o.type === 'intrusion-set');
+        const relationships = liveObjects.filter(o => o.type === 'relationship');
+
+        // Pick the mitre-attack external reference for stable IDs
+        const pickMitreExtId = (obj) => {
+            const refs = Array.isArray(obj.external_references) ? obj.external_references : [];
+            const mitreRef = refs.find(r => r && r.source_name === 'mitre-attack');
+            return (mitreRef && mitreRef.external_id) || (refs[0] && refs[0].external_id) || '';
+        };
+
+        intrusionSets.forEach(set => {
+            const extId = pickMitreExtId(set);
+            const rawAliases = Array.isArray(set.aliases) ? set.aliases : [];
+            // STIX includes the primary name as the first alias — strip it to avoid duplication.
+            const aliases = rawAliases.filter(a => typeof a === 'string' && a !== set.name);
+            const actor = {
+                stixId: set.id,
+                id: extId,
+                name: sanitizeString(set.name || 'Unknown', 200),
+                description: sanitizeString(set.description || '', 5000),
+                aliases: sanitizeStringArray(aliases),
+                techniqueIds: new Set()
+            };
+            threatActorMap[set.id] = actor;
+            threatActors.push(actor);
+        });
+
+        // Walk uses-relationships once, attach techniques to actors.
+        relationships.forEach(rel => {
+            if (rel.relationship_type !== 'uses') return;
+            const actor = threatActorMap[rel.source_ref];
+            if (!actor) return;
+            const target = objectMap[rel.target_ref];
+            if (!target || target.type !== 'attack-pattern') return;
+            const techExtId = pickMitreExtId(target);
+            if (techExtId) actor.techniqueIds.add(techExtId);
+        });
+
+        // Drop actors with no resolvable techniques (rare, but pointless to show).
+        threatActors = threatActors.filter(a => a.techniqueIds.size > 0);
+        threatActors.sort((a, b) => a.name.localeCompare(b.name));
+
+        // Rebuild the map after filtering.
+        threatActorMap = {};
+        threatActors.forEach(a => { threatActorMap[a.stixId] = a; });
+
+        console.log(`Parsed ${threatActors.length} threat actors with technique mappings`);
+    }
+
+    /** Build the union set of MITRE technique IDs for the currently selected actors. */
+    function getActorTechniqueSet() {
+        if (!activeActors.length) return null;
+        const set = new Set();
+        activeActors.forEach(stixId => {
+            const actor = threatActorMap[stixId];
+            if (actor) actor.techniqueIds.forEach(id => set.add(id));
+        });
+        return set.size ? set : null;
+    }
+
+    /**
+     * Tag every node in fullDataset with `_actorScope` (true/false). When actorSet is null,
+     * everything is in-scope (no filter). Two-pass: bubble Technique/Sub-Technique scope up
+     * to Tactic, then push it down to Strategy/Analytic/Data Component descendants so
+     * detections under an in-scope (sub-)technique stay highlighted.
+     */
+    function computeActorScope(node, actorSet) {
+        const noFilter = !actorSet;
+
+        function bubble(n) {
+            let scope = noFilter;
+            const isTech = n.type === 'Technique' || n.type === 'Sub-Technique';
+            if (!noFilter && isTech && actorSet.has(n.id)) scope = true;
+
+            if (n.children && n.children.length) {
+                n.children.forEach(c => {
+                    const childScope = bubble(c);
+                    if (!noFilter && childScope) {
+                        // Tactic inherits scope from any descendant in scope.
+                        // A parent Technique inherits scope from any sub-technique in scope.
+                        // Root: same.
+                        if (n.type === 'Tactic' || n.type === 'Root' ||
+                            (n.type === 'Technique' && c.type === 'Sub-Technique')) {
+                            scope = true;
+                        }
+                    }
+                });
+            }
+            n._actorScope = scope;
+            return scope;
+        }
+        bubble(node);
+
+        // Push scope from Technique/Sub-Technique down to detection descendants.
+        function push(n, parentTechScope) {
+            const isTech = n.type === 'Technique' || n.type === 'Sub-Technique';
+            const isContainer = isTech || n.type === 'Tactic' || n.type === 'Root';
+            if (!isContainer) {
+                n._actorScope = parentTechScope;
+            }
+            if (n.children && n.children.length) {
+                const newParent = isTech ? n._actorScope : parentTechScope;
+                n.children.forEach(c => push(c, newParent));
+            }
+        }
+        push(node, noFilter);
+    }
+
+    /** Recompute scope, fade out-of-scope arcs to fully hidden, refresh the coverage panel. */
+    function refreshActorScope() {
+        if (!fullDataset) return;
+        const actorSet = getActorTechniqueSet();
+        computeActorScope(fullDataset, actorSet);
+        if (path) {
+            // Hide out-of-scope arcs entirely (opacity 0 covers fill + stroke).
+            // Their partition wedges stay reserved, so in-scope arcs don't reflow.
+            path.transition().duration(300)
+                .attr("opacity", d => d.data._actorScope === false ? 0 : 1);
+            // Disable hover/click on invisible arcs.
+            path.attr("pointer-events", d => d.data._actorScope === false ? "none" : "auto");
+        }
+        renderActorCoveragePanel();
+    }
+
+    function loadActorsFromStorage() {
+        try {
+            const saved = localStorage.getItem('mitre_v18_active_actors');
+            if (!saved) return;
+            const ids = safeJSONParse(saved);
+            if (Array.isArray(ids)) {
+                activeActors = ids.filter(id => typeof id === 'string' && threatActorMap[id]);
+            }
+        } catch (error) {
+            localStorage.removeItem('mitre_v18_active_actors');
+        }
+    }
+
+    function saveActorsToStorage() {
+        try {
+            localStorage.setItem('mitre_v18_active_actors', JSON.stringify(activeActors));
+        } catch (error) {
+            console.warn('Failed to persist actor selection:', error);
+        }
+    }
+
+    function addActor(stixId) {
+        if (!threatActorMap[stixId]) return;
+        if (activeActors.includes(stixId)) return;
+        activeActors.push(stixId);
+        saveActorsToStorage();
+        renderSelectedActors();
+        updateActorListSelection();
+        refreshActorScope();
+
+        // After selection, clear any active search filter and re-render the full
+        // list. Without this, the list stays filtered to the (now-selected) match
+        // and the user can't see other actors to add — the most common reason
+        // multi-select feels broken. Re-focus the search so they can immediately
+        // type the next query.
+        const searchInput = document.getElementById('actor-search');
+        if (searchInput && searchInput.value !== '') {
+            searchInput.value = '';
+            renderActorList('');
+            searchInput.focus();
+        }
+    }
+
+    function removeActor(stixId) {
+        activeActors = activeActors.filter(id => id !== stixId);
+        saveActorsToStorage();
+        renderSelectedActors();
+        updateActorListSelection();
+        refreshActorScope();
+    }
+
+    function clearActorFilter() {
+        if (!activeActors.length) return;
+        activeActors = [];
+        saveActorsToStorage();
+        renderSelectedActors();
+        updateActorListSelection();
+        refreshActorScope();
+    }
+
+    function renderSelectedActors() {
+        const container = document.getElementById('selected-actors');
+        const wrap = document.getElementById('selected-actors-wrap');
+        if (!container) return;
+
+        if (!activeActors.length) {
+            container.innerHTML = '';
+            if (wrap) wrap.style.display = 'none';
+        } else {
+            container.innerHTML = activeActors.map(stixId => {
+                const actor = threatActorMap[stixId];
+                if (!actor) return '';
+                return `
+                    <span class="actor-chip">
+                        <span>${escapeHtml(actor.name)}</span>
+                        <span class="actor-chip-id">${escapeHtml(actor.id)}</span>
+                        <button class="actor-chip-remove"
+                                data-stix-id="${escapeHtml(stixId)}"
+                                aria-label="Remove ${escapeHtml(actor.name)}">×</button>
+                    </span>
+                `;
+            }).join('');
+            container.querySelectorAll('.actor-chip-remove').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeActor(btn.dataset.stixId);
+                });
+            });
+            if (wrap) wrap.style.display = 'block';
+        }
+
+        const countEl = document.getElementById('selected-actors-count');
+        if (countEl) countEl.textContent = activeActors.length;
+
+        const clearBtn = document.getElementById('clearActorBtn');
+        if (clearBtn) clearBtn.style.display = activeActors.length ? 'block' : 'none';
+
+        const badge = document.getElementById('actors-badge');
+        if (badge) {
+            badge.textContent = activeActors.length;
+            badge.setAttribute('aria-label', `${activeActors.length} actor(s) selected`);
+        }
+    }
+
+    function searchActors(query) {
+        if (!threatActors.length) return [];
+        const q = query.toLowerCase();
+        const matches = threatActors.filter(actor => {
+            if (actor.name.toLowerCase().includes(q)) return true;
+            if (actor.id && actor.id.toLowerCase().includes(q)) return true;
+            return actor.aliases.some(a => a.toLowerCase().includes(q));
+        });
+        matches.sort((a, b) => {
+            const aIdExact = a.id.toLowerCase() === q;
+            const bIdExact = b.id.toLowerCase() === q;
+            if (aIdExact && !bIdExact) return -1;
+            if (!aIdExact && bIdExact) return 1;
+            const aNameStart = a.name.toLowerCase().startsWith(q);
+            const bNameStart = b.name.toLowerCase().startsWith(q);
+            if (aNameStart && !bNameStart) return -1;
+            if (!aNameStart && bNameStart) return 1;
+            return a.name.localeCompare(b.name);
+        });
+        return matches.slice(0, 50);
+    }
+
+    /**
+     * Render the full multi-select checkbox list, optionally filtered by `query`.
+     * Called once after init, and on every search input event. Selection visual
+     * state is synced via updateActorListSelection() — no need to re-render
+     * just because activeActors changed.
+     */
+    function renderActorList(query) {
+        const container = document.getElementById('actor-checkbox-list');
+        const meta = document.getElementById('actor-list-meta');
+        if (!container) return;
+
+        const q = (query || '').trim().toLowerCase();
+        const items = q.length === 0 ? threatActors.slice() : searchActors(q);
+
+        if (meta) {
+            const matchLabel = q.length === 0
+                ? `${threatActors.length} actors`
+                : `${items.length} match${items.length === 1 ? '' : 'es'}`;
+            meta.textContent = `${matchLabel} · ${activeActors.length} selected`;
+        }
+
+        if (items.length === 0) {
+            container.innerHTML = '<div class="actor-list-empty">No matching actors</div>';
+            return;
+        }
+
+        const selectedSet = new Set(activeActors);
+        container.innerHTML = items.map(actor => {
+            const isSelected = selectedSet.has(actor.stixId);
+            const selectedClass = isSelected ? 'selected' : '';
+            const ariaChecked = isSelected ? 'true' : 'false';
+            const aliasLine = actor.aliases.length
+                ? `<div class="actor-checkbox-aliases">aka ${escapeHtml(actor.aliases.slice(0, 3).join(', '))}</div>`
+                : '';
+            // No <label>/<input>: a div with role="checkbox" sidesteps the browser's
+            // label→input click-synthesis machinery, which was double-firing the
+            // toggle handler and silently undoing every selection after the first.
+            return `
+                <div class="actor-checkbox-item ${selectedClass}"
+                     role="checkbox"
+                     aria-checked="${ariaChecked}"
+                     aria-label="${escapeHtml(actor.name)}"
+                     tabindex="0"
+                     data-stix-id="${escapeHtml(actor.stixId)}">
+                    <span class="actor-checkbox-box" aria-hidden="true"></span>
+                    <div class="actor-checkbox-info">
+                        <div class="actor-checkbox-name">
+                            ${escapeHtml(actor.name)}
+                            <span class="actor-checkbox-id">${escapeHtml(actor.id)}</span>
+                        </div>
+                        ${aliasLine}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        // No per-row event binding here — initActorSelector() attaches a single
+        // delegated click/keydown listener to the container that survives re-renders.
+    }
+
+    /**
+     * Sync the visible checkbox list to the current activeActors selection
+     * without re-rendering rows. Cheap; called after every selection change.
+     */
+    function updateActorListSelection() {
+        const container = document.getElementById('actor-checkbox-list');
+        const meta = document.getElementById('actor-list-meta');
+        if (!container) return;
+
+        const selectedSet = new Set(activeActors);
+        container.querySelectorAll('.actor-checkbox-item').forEach(item => {
+            const stixId = item.dataset.stixId;
+            const isSelected = selectedSet.has(stixId);
+            item.classList.toggle('selected', isSelected);
+            item.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+        });
+
+        if (meta) {
+            const visibleCount = container.querySelectorAll('.actor-checkbox-item').length;
+            const isFiltered = visibleCount !== threatActors.length;
+            const matchLabel = isFiltered
+                ? `${visibleCount} match${visibleCount === 1 ? '' : 'es'}`
+                : `${threatActors.length} actors`;
+            meta.textContent = `${matchLabel} · ${activeActors.length} selected`;
+        }
+    }
+
+    function initActorSelector() {
+        const searchInput = document.getElementById('actor-search');
+        const listContainer = document.getElementById('actor-checkbox-list');
+        if (!searchInput || !listContainer) return;
+
+        let debounceTimer;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(debounceTimer);
+            const value = e.target.value;
+            debounceTimer = setTimeout(() => renderActorList(value), 100);
+        });
+
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                renderActorList('');
+                searchInput.blur();
+            }
+        });
+
+        // Single delegated handler for all rows. Survives every re-render of the
+        // list (the container element itself is stable; only its innerHTML changes),
+        // so we attach this exactly once and never worry about stale bindings.
+        const toggleByItem = (item) => {
+            const stixId = item.dataset.stixId;
+            if (!stixId) return;
+            if (activeActors.includes(stixId)) removeActor(stixId);
+            else addActor(stixId);
+        };
+
+        listContainer.addEventListener('click', (e) => {
+            const item = e.target.closest('.actor-checkbox-item');
+            if (!item || !listContainer.contains(item)) return;
+            toggleByItem(item);
+        });
+
+        listContainer.addEventListener('keydown', (e) => {
+            if (e.key !== ' ' && e.key !== 'Enter') return;
+            const item = e.target.closest('.actor-checkbox-item');
+            if (!item || !listContainer.contains(item)) return;
+            e.preventDefault();
+            toggleByItem(item);
+        });
+
+        // Initial full list
+        renderActorList('');
+    }
+
+    /**
+     * Aggregate per-technique coverage, per-tactic breakdown, and detection-depth stats
+     * for the active actor set against fullDataset. Same technique can appear under
+     * multiple tactics — collapsed to a single entry by ID for the global counts, but
+     * tracked separately per-tactic for the tactic breakdown.
+     */
+    function computeActorCoverage() {
+        if (!fullDataset) return null;
+        const actorSet = getActorTechniqueSet();
+        if (!actorSet) return null;
+
+        const techStatus = new Map();   // technique ID -> aggregate (deduped across tactics)
+        const tacticStats = new Map();  // tactic ID -> {name, shortName, stixId, techIds: Set, covered: Set}
+
+        function walk(node, currentTactic) {
+            if (node.type === 'Tactic') {
+                if (!tacticStats.has(node.id)) {
+                    tacticStats.set(node.id, {
+                        id: node.id, name: node.name, shortName: node.shortName || node.name,
+                        techIds: new Set(), coveredIds: new Set()
+                    });
+                }
+                currentTactic = tacticStats.get(node.id);
+            }
+
+            if ((node.type === 'Technique' || node.type === 'Sub-Technique') && actorSet.has(node.id)) {
+                const existing = techStatus.get(node.id) || {
+                    id: node.id, name: node.name, type: node.type,
+                    activeLeaves: 0, totalLeaves: 0
+                };
+                existing.activeLeaves = Math.max(existing.activeLeaves, node.activeLeafCount || 0);
+                existing.totalLeaves = Math.max(existing.totalLeaves, node.leafCount || 0);
+                techStatus.set(node.id, existing);
+
+                if (currentTactic) {
+                    currentTactic.techIds.add(node.id);
+                    if ((node.activeLeafCount || 0) > 0) currentTactic.coveredIds.add(node.id);
+                }
+            }
+            if (node.children) node.children.forEach(c => walk(c, currentTactic));
+        }
+        walk(fullDataset, null);
+
+        let covered = 0, gapsWithData = 0, gapsNoData = 0;
+        const uncovered = [];
+        const depthSamples = []; // activeLeafCount values across covered techniques
+
+        techStatus.forEach(t => {
+            if (t.activeLeaves > 0) {
+                covered++;
+                depthSamples.push(t.activeLeaves);
+            } else if (t.totalLeaves > 0) {
+                gapsWithData++;
+                uncovered.push(t);
+            } else {
+                gapsNoData++;
+                uncovered.push(t);
+            }
+        });
+
+        uncovered.sort((a, b) => {
+            if ((a.totalLeaves > 0) !== (b.totalLeaves > 0)) {
+                return (b.totalLeaves > 0) ? 1 : -1;
+            }
+            return a.id.localeCompare(b.id);
+        });
+
+        // Per-tactic breakdown (only tactics that the actor uses)
+        const tactics = [];
+        tacticStats.forEach(t => {
+            if (t.techIds.size === 0) return;
+            const total = t.techIds.size;
+            const cov = t.coveredIds.size;
+            tactics.push({
+                id: t.id, name: t.name, shortName: t.shortName,
+                covered: cov, total: total,
+                pct: total === 0 ? 0 : (cov / total) * 100
+            });
+        });
+        tactics.sort((a, b) => a.pct - b.pct || a.name.localeCompare(b.name));
+
+        // Detection depth stats — average / median / max of activeLeafCount across covered.
+        let depth = null;
+        if (depthSamples.length) {
+            const sorted = depthSamples.slice().sort((a, b) => a - b);
+            const sum = sorted.reduce((s, n) => s + n, 0);
+            const mid = Math.floor(sorted.length / 2);
+            const median = sorted.length % 2 === 0
+                ? (sorted[mid - 1] + sorted[mid]) / 2
+                : sorted[mid];
+            depth = {
+                avg: sum / sorted.length,
+                median: median,
+                max: sorted[sorted.length - 1],
+                samples: sorted.length
+            };
+        }
+
+        return {
+            total: techStatus.size,
+            covered, gapsWithData, gapsNoData,
+            coveragePercent: techStatus.size === 0 ? 0 : (covered / techStatus.size) * 100,
+            uncovered,
+            tactics,
+            depth
+        };
+    }
+
+    /**
+     * Cross-actor intersection / union / per-actor-unique counts.
+     * Only meaningful when 2+ actors are selected.
+     */
+    function computeActorOverlap() {
+        if (activeActors.length < 2) return null;
+        const sets = activeActors.map(stixId => {
+            const a = threatActorMap[stixId];
+            return a ? { stixId, name: a.name, id: a.id, techniqueIds: a.techniqueIds } : null;
+        }).filter(Boolean);
+        if (sets.length < 2) return null;
+
+        const union = new Set();
+        sets.forEach(s => s.techniqueIds.forEach(t => union.add(t)));
+
+        // Intersection: techniques shared by ALL selected actors
+        const [first, ...rest] = sets;
+        const intersection = new Set();
+        first.techniqueIds.forEach(t => {
+            if (rest.every(s => s.techniqueIds.has(t))) intersection.add(t);
+        });
+
+        // Per-actor unique: techniques only that actor uses (not in any other selected actor)
+        const uniquePerActor = sets.map(s => {
+            let count = 0;
+            s.techniqueIds.forEach(t => {
+                const exclusive = sets.every(other =>
+                    other.stixId === s.stixId || !other.techniqueIds.has(t)
+                );
+                if (exclusive) count++;
+            });
+            return { stixId: s.stixId, name: s.name, id: s.id, uniqueCount: count };
+        });
+
+        return {
+            intersectionCount: intersection.size,
+            unionCount: union.size,
+            uniquePerActor
+        };
+    }
+
+    function renderActorCoveragePanel() {
+        const panel = document.getElementById('actor-coverage-panel');
+        const noLayersHint = document.getElementById('actor-no-layers-hint');
+        if (!panel || !noLayersHint) return;
+
+        if (!activeActors.length) {
+            panel.style.display = 'none';
+            noLayersHint.style.display = 'none';
+            return;
+        }
+
+        const data = computeActorCoverage();
+        if (!data || data.total === 0) {
+            panel.style.display = 'none';
+            return;
+        }
+
+        panel.style.display = 'block';
+        const enabledLayerCount = detectionLayers.filter(l => l.enabled).length;
+        noLayersHint.style.display = enabledLayerCount === 0 ? 'block' : 'none';
+
+        document.getElementById('actor-total').textContent = data.total;
+        document.getElementById('actor-covered').textContent = data.covered;
+        document.getElementById('actor-gap-data').textContent = data.gapsWithData;
+        document.getElementById('actor-gap-nodata').textContent = data.gapsNoData;
+        document.getElementById('actor-coverage-percent').textContent = data.coveragePercent.toFixed(0) + '%';
+        document.getElementById('actor-coverage-fill').style.width = data.coveragePercent.toFixed(1) + '%';
+
+        // Detection depth inline-stats
+        const depthLine = document.getElementById('actor-depth-line');
+        if (data.depth) {
+            depthLine.innerHTML =
+                `Detection depth · avg <strong>${data.depth.avg.toFixed(1)}</strong>` +
+                ` · median <strong>${data.depth.median}</strong>` +
+                ` · max <strong>${data.depth.max}</strong>` +
+                ` <span style="opacity:0.6;">(${data.depth.samples} covered)</span>`;
+            depthLine.style.display = 'block';
+        } else {
+            depthLine.style.display = 'none';
+        }
+
+        // Actor overlap (only with 2+ actors selected)
+        const overlapSection = document.getElementById('actor-overlap-section');
+        const overlap = computeActorOverlap();
+        if (overlap) {
+            document.getElementById('actor-overlap-intersection').textContent = overlap.intersectionCount;
+            document.getElementById('actor-overlap-union').textContent = overlap.unionCount;
+            const uniqueContainer = document.getElementById('actor-overlap-unique');
+            uniqueContainer.innerHTML = overlap.uniquePerActor.map(a => `
+                <div class="actor-overlap-unique-item">
+                    <span class="actor-overlap-unique-name">Unique to ${escapeHtml(a.name)}
+                        <span style="color:var(--text-muted); font-family:var(--font-mono); font-size:0.7rem; margin-left:4px;">${escapeHtml(a.id)}</span>
+                    </span>
+                    <span class="actor-overlap-unique-count">${a.uniqueCount}</span>
+                </div>
+            `).join('');
+            overlapSection.style.display = 'block';
+        } else {
+            overlapSection.style.display = 'none';
+        }
+
+        // Per-tactic coverage breakdown
+        const tacticsSection = document.getElementById('actor-tactics-section');
+        const tacticsList = document.getElementById('actor-tactics-list');
+        if (data.tactics.length) {
+            tacticsList.innerHTML = data.tactics.map(t => `
+                <div class="actor-tactic-row" role="listitem"
+                     data-tactic-id="${escapeHtml(t.id)}" tabindex="0">
+                    <span class="actor-tactic-name">${escapeHtml(t.name)}</span>
+                    <div class="actor-tactic-bar">
+                        <div class="actor-tactic-bar-fill" style="width:${t.pct.toFixed(1)}%;"></div>
+                    </div>
+                    <span class="actor-tactic-meta">
+                        <strong>${t.covered}/${t.total}</strong> · ${t.pct.toFixed(0)}%
+                    </span>
+                </div>
+            `).join('');
+            // Highlight the currently-zoomed row, if any.
+            if (currentTacticZoomId) {
+                const activeRow = tacticsList.querySelector(`.actor-tactic-row[data-tactic-id="${CSS.escape(currentTacticZoomId)}"]`);
+                if (activeRow) activeRow.classList.add('active-zoom');
+            }
+
+            // Click a row -> zoom to that tactic. Clicking the same row again unzooms.
+            tacticsList.querySelectorAll('.actor-tactic-row').forEach(row => {
+                const navigate = () => {
+                    const tid = row.dataset.tacticId;
+                    if (!root || !tid) return;
+                    if (currentTacticZoomId === tid) {
+                        clearTacticZoom();
+                    } else {
+                        const node = root.descendants().find(d =>
+                            d.data && d.data.type === 'Tactic' && d.data.id === tid
+                        );
+                        if (!node) return;
+                        clicked(null, node);
+                        currentTacticZoomId = tid;
+                        tacticsList.querySelectorAll('.actor-tactic-row.active-zoom')
+                            .forEach(r => r.classList.remove('active-zoom'));
+                        row.classList.add('active-zoom');
+                    }
+                };
+                row.addEventListener('click', navigate);
+                row.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(); }
+                });
+            });
+            tacticsSection.style.display = 'block';
+        } else {
+            tacticsSection.style.display = 'none';
+        }
+
+        const list = document.getElementById('actor-uncovered-list');
+        if (!data.uncovered.length) {
+            list.innerHTML = '<div class="help-text" style="text-align:center; padding:10px;">All actor techniques covered ✓</div>';
+        } else {
+            list.innerHTML = data.uncovered.slice(0, 25).map(t => {
+                const tag = t.totalLeaves > 0 ? 'Data Available · No Detection' : 'No Telemetry Defined';
+                const cls = t.totalLeaves > 0 ? '' : 'no-data';
+                return `
+                    <div class="actor-uncovered-item ${cls}" role="listitem"
+                         data-tech-id="${escapeHtml(t.id)}" tabindex="0">
+                        <span class="actor-uncovered-id">${escapeHtml(t.id)}</span>
+                        <span class="actor-uncovered-name">${escapeHtml(t.name)}</span>
+                        <div class="actor-uncovered-tag">${tag}</div>
+                    </div>
+                `;
+            }).join('');
+
+            // Clicking an uncovered technique zooms the sunburst to it.
+            list.querySelectorAll('.actor-uncovered-item').forEach(item => {
+                const navigate = () => {
+                    const techId = item.dataset.techId;
+                    if (!root || !techId) return;
+                    const node = root.descendants().find(d =>
+                        d.data && (d.data.type === 'Technique' || d.data.type === 'Sub-Technique')
+                        && d.data.id === techId
+                    );
+                    if (node) clicked(null, node);
+                };
+                item.addEventListener('click', navigate);
+                item.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(); }
+                });
+            });
+        }
+    }
+
+    // Tracks which tactic the user zoomed to via the per-tactic list, so clicking
+    // the same row again zooms back out. Cleared when the user explicitly resets.
+    let currentTacticZoomId = null;
+
+    function clearTacticZoom() {
+        currentTacticZoomId = null;
+        if (root) clicked(null, root);
+        document.querySelectorAll('.actor-tactic-row.active-zoom')
+            .forEach(r => r.classList.remove('active-zoom'));
+    }
+
+    /**
+     * Generic collapsible toggle. Targets a body element by ID; the matching
+     * toggle button is found via aria-controls. Used by Selected and
+     * Per-Tactic Coverage sections.
+     */
+    function toggleSection(bodyId) {
+        const body = document.getElementById(bodyId);
+        if (!body) return;
+        const collapsed = body.classList.toggle('collapsed');
+        const toggle = document.querySelector(`button[aria-controls="${bodyId}"]`);
+        if (toggle) toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+
+    /**
+     * Collapse / expand the Filter Actors top pane. When collapsed, the bottom
+     * pane (chips + coverage) gets all the vertical space. Persisted so users
+     * who prefer a small filter pane keep that preference across reloads.
+     */
+    function toggleActorFilterPane() {
+        const top = document.getElementById('actor-tab-top');
+        if (!top) return;
+        const collapsed = top.classList.toggle('collapsed');
+        const btn = top.querySelector('.actor-tab-collapse');
+        if (btn) btn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        try { localStorage.setItem('mitre_v18_filter_collapsed', collapsed ? '1' : '0'); } catch (e) {}
+    }
+
+    function loadActorFilterPaneState() {
+        try {
+            if (localStorage.getItem('mitre_v18_filter_collapsed') === '1') {
+                const top = document.getElementById('actor-tab-top');
+                if (top) top.classList.add('collapsed');
+                const btn = top && top.querySelector('.actor-tab-collapse');
+                if (btn) btn.setAttribute('aria-expanded', 'false');
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    // Expose handlers used by inline onclick attributes
+    window.removeActor = removeActor;
+    window.clearActorFilter = clearActorFilter;
+    window.toggleSection = toggleSection;
+    window.clearTacticZoom = clearTacticZoom;
+    window.toggleActorFilterPane = toggleActorFilterPane;
+
     // ============================================================================
     // LAYER MANAGEMENT FUNCTIONS
     // ============================================================================
@@ -2442,9 +4324,10 @@
             
             calculateCoverage(fullDataset);
             renderLayersList();
+            renderActorCoveragePanel();
         });
     }
-    
+
     function findNodeById(node, targetId, targetType = null) {
         if (node.id === targetId && (!targetType || node.type === targetType)) {
             return node;
@@ -2559,7 +4442,7 @@
             NotificationSystem.warning('Export', 'No active layers to export');
             return;
         }
-        
+
         const exportData = {
             layers: enabled.map(l => ({
                 name: l.name,
@@ -2570,7 +4453,7 @@
                 detections: l.detections
             }))
         };
-        
+
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -2579,6 +4462,117 @@
         a.click();
         URL.revokeObjectURL(url);
     }
+
+    /**
+     * Walk the hierarchy and capture every active Data Component into a v18-schema
+     * detection layer JSON. Active DCs are grouped by their (tactic, technique,
+     * sub-technique, strategy, analytic) lineage so each detection rule in the
+     * exported layer represents one analytic with its data components.
+     *
+     * Works for manual right-click coverage AND for layer-driven activation —
+     * captures whatever's currently lit up in the sunburst, regardless of source.
+     */
+    function exportCurrentCoverageAsLayer() {
+        if (!fullDataset) {
+            NotificationSystem.warning('Export', 'No data loaded yet.');
+            return;
+        }
+
+        // Tactic shortname (e.g. "Credential Access" -> "credential-access") matches
+        // the kill-chain phase name MITRE uses in STIX, and what the layer schema expects.
+        const tacticShortName = (tacticNode) => {
+            if (!tacticNode || !tacticNode.name) return '';
+            return tacticNode.name.toLowerCase().trim().replace(/\s+/g, '-');
+        };
+
+        // Group key = full lineage. One detection per unique analytic-or-deeper path.
+        const grouped = new Map();
+
+        const walk = (node, path) => {
+            const nextPath = { ...path };
+            if (node.type === 'Tactic') nextPath.tactic = node;
+            else if (node.type === 'Technique') nextPath.technique = node;
+            else if (node.type === 'Sub-Technique') nextPath.subtechnique = node;
+            else if (node.type === 'Detection Strategy') nextPath.strategy = node;
+            else if (node.type === 'Analytic') nextPath.analytic = node;
+
+            if (node.type === 'Data Component' && node.active) {
+                const key = [
+                    nextPath.tactic?.id || '',
+                    nextPath.technique?.id || '',
+                    nextPath.subtechnique?.id || '',
+                    nextPath.strategy?.id || '',
+                    nextPath.analytic?.id || ''
+                ].join('|');
+
+                let entry = grouped.get(key);
+                if (!entry) {
+                    entry = {
+                        tactics: nextPath.tactic ? [tacticShortName(nextPath.tactic)] : [],
+                        techniques: nextPath.technique ? [nextPath.technique.id] : [],
+                        subtechniques: nextPath.subtechnique ? [nextPath.subtechnique.id] : [],
+                        detectionStrategies: nextPath.strategy ? [nextPath.strategy.id] : [],
+                        analytics: nextPath.analytic ? [nextPath.analytic.id] : [],
+                        dataComponents: []
+                    };
+                    grouped.set(key, entry);
+                }
+                if (!entry.dataComponents.includes(node.id)) {
+                    entry.dataComponents.push(node.id);
+                }
+            }
+            if (node.children) node.children.forEach(c => walk(c, nextPath));
+        };
+        walk(fullDataset, {});
+
+        if (grouped.size === 0) {
+            NotificationSystem.info('Export Coverage',
+                'Nothing active to export. Right-click sunburst arcs to mark coverage, or enable a detection layer.');
+            return;
+        }
+
+        let counter = 1;
+        const detections = Array.from(grouped.values()).map(d => {
+            const idx = counter++;
+            const label = d.analytics[0] || d.detectionStrategies[0]
+                       || d.subtechniques[0] || d.techniques[0] || 'manual';
+            return {
+                ruleName: `Coverage export · ${label}`,
+                ruleId: `DEPTHCHARGE-EXP-${String(idx).padStart(4, '0')}`,
+                tactics: d.tactics,
+                techniques: d.techniques,
+                subtechniques: d.subtechniques,
+                detectionStrategies: d.detectionStrategies,
+                analytics: d.analytics,
+                dataComponents: d.dataComponents,
+                score: 1.0,
+                enabled: true
+            };
+        });
+
+        const now = new Date();
+        const layer = {
+            name: `DEPTHCHARGE coverage ${now.toISOString().slice(0, 10)}`,
+            version: '1.0',
+            domain: 'enterprise-attack',
+            description: 'Exported from MITRE DEPTHCHARGE — captures every active Data Component as a detection rule grouped by tactic/technique/sub-technique/strategy/analytic lineage.',
+            timestamp: now.toISOString(),
+            detections: detections
+        };
+
+        const blob = new Blob([JSON.stringify(layer, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `depthcharge_coverage_${now.toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        NotificationSystem.success('Coverage Exported',
+            `${detections.length} detection${detections.length === 1 ? '' : 's'} written. Re-import on the Detection Layers tab.`);
+    }
+
+    window.exportCurrentCoverageAsLayer = exportCurrentCoverageAsLayer;
     
     function clearAllLayers() {
         if (detectionLayers.length === 0) return;
@@ -2798,13 +4792,259 @@
         node.score = total === 0 ? 0 : (active / total);
     }
     
-    function getCoverageColor(score) {
-        const colors = [
-            '#8B0000', '#B71C1C', '#D32F2F', '#E64A19', '#F57C00',
-            '#FBC02D', '#FDD835', '#C0CA33', '#7CB342', '#388E3C'
-        ];
-        return colors[Math.min(Math.floor(score * 10), 9)];
+    // ============================================================================
+    // PALETTE / THEMING
+    // ============================================================================
+    //
+    // Three named presets + a user-customisable Custom slot. Each preset defines:
+    //   - coverageLow / coverageHigh: endpoints of the 10-stop coverage gradient
+    //     (auto-interpolated in Lab space via d3.interpolateLab).
+    //   - success / warning / danger: the informational semantic trio, written to
+    //     the corresponding CSS variables on :root so every consumer (notifications,
+    //     stat tiles, uncovered-list borders) updates without further wiring.
+    //   - accent: brand --accent-color. Mostly UI chrome but exposed so Custom can
+    //     re-skin it without forking the chrome palette.
+
+    const PALETTE_PRESETS = {
+        'default': {
+            label: 'Default (traffic light)',
+            coverageLow: '#8B0000', coverageHigh: '#388E3C',
+            success: '#10B981', warning: '#F59E0B', danger: '#EF4444',
+            accent: '#10B981'
+        },
+        'cvd-safe': {
+            label: 'CVD-safe (viridis + Wong)',
+            coverageLow: '#440154', coverageHigh: '#FDE725',
+            success: '#0072B2', warning: '#E69F00', danger: '#CC79A7',
+            accent: '#10B981'
+        },
+        'dark': {
+            label: 'High-contrast greyscale',
+            coverageLow: '#1A1A1A', coverageHigh: '#E2E8F0',
+            success: '#94A3B8', warning: '#E2E8F0', danger: '#FFFFFF',
+            accent: '#10B981'
+        }
+    };
+
+    let activePresetName = 'default';
+    let activePalette = PALETTE_PRESETS['default'];
+    let coverageStops = [];   // 10 hex strings, populated by applyPalette()
+
+    function regenerateCoverageStops(low, high) {
+        // d3.interpolateLab gives a perceptually-uniform ramp between two endpoints.
+        const interp = d3.interpolateLab(low, high);
+        coverageStops = d3.range(10).map(i => d3.color(interp(i / 9)).formatHex());
     }
+
+    function getCoverageColor(score) {
+        if (!coverageStops.length) return '#888';
+        return coverageStops[Math.min(Math.floor(score * 10), 9)];
+    }
+
+    /**
+     * Apply a palette to the running app: sets CSS vars on :root, regenerates the
+     * coverage gradient, re-fills sunburst arcs, refreshes inline-styled artefacts
+     * (legend, node-score), and persists the selection.
+     *
+     * @param {string} presetName  one of PALETTE_PRESETS keys, or 'custom'
+     * @param {object} [customOverrides]  required when presetName === 'custom';
+     *   shape matches a preset object (coverageLow/High, success, warning, danger, accent)
+     */
+    function applyPalette(presetName, customOverrides) {
+        if (presetName === 'custom') {
+            const base = PALETTE_PRESETS['default'];
+            activePalette = Object.assign({}, base, customOverrides || {});
+        } else if (PALETTE_PRESETS[presetName]) {
+            activePalette = PALETTE_PRESETS[presetName];
+        } else {
+            presetName = 'default';
+            activePalette = PALETTE_PRESETS['default'];
+        }
+        activePresetName = presetName;
+
+        const root = document.documentElement;
+        root.style.setProperty('--success-color', activePalette.success);
+        root.style.setProperty('--warning-color', activePalette.warning);
+        root.style.setProperty('--danger-color', activePalette.danger);
+        root.style.setProperty('--accent-color', activePalette.accent);
+        document.body.setAttribute('data-palette', presetName);
+
+        regenerateCoverageStops(activePalette.coverageLow, activePalette.coverageHigh);
+
+        if (path) {
+            path.transition().duration(300)
+                .attr("fill", d => getCoverageColor(d.data.score || 0));
+        }
+
+        // Inline-coloured node score (overview tab selection panel)
+        const nodeScore = document.getElementById('node-score');
+        if (nodeScore && nodeScore.innerText) {
+            const pct = parseInt(nodeScore.innerText, 10);
+            if (!isNaN(pct)) nodeScore.style.color = getCoverageColor(pct / 100);
+        }
+
+        updateCoverageLegendGradient();
+        persistPaletteSettings();
+        syncSettingsTabUI();
+    }
+
+    function updateCoverageLegendGradient() {
+        const bar = document.getElementById('coverage-legend-bar');
+        if (!bar || !coverageStops.length) return;
+        const stops = coverageStops.map((c, i) =>
+            `${c} ${Math.round((i / 9) * 100)}%`
+        ).join(', ');
+        bar.style.background = `linear-gradient(90deg, ${stops})`;
+    }
+
+    function persistPaletteSettings() {
+        try {
+            localStorage.setItem('mitre_v18_palette_preset', activePresetName);
+            if (activePresetName === 'custom') {
+                const custom = {
+                    coverageLow: activePalette.coverageLow,
+                    coverageHigh: activePalette.coverageHigh,
+                    success: activePalette.success,
+                    warning: activePalette.warning,
+                    danger: activePalette.danger,
+                    accent: activePalette.accent
+                };
+                localStorage.setItem('mitre_v18_custom_palette', JSON.stringify(custom));
+            }
+        } catch (e) { /* storage unavailable, ignore */ }
+    }
+
+    function loadPaletteSettings() {
+        let preset = null;
+        let custom = null;
+        try {
+            preset = localStorage.getItem('mitre_v18_palette_preset');
+            const raw = localStorage.getItem('mitre_v18_custom_palette');
+            if (raw) custom = safeJSONParse(raw);
+
+            // Migrate legacy mitre_v18_cb_mode → cvd-safe preset
+            if (!preset && localStorage.getItem('mitre_v18_cb_mode') === '1') {
+                preset = 'cvd-safe';
+                localStorage.setItem('mitre_v18_palette_preset', preset);
+                localStorage.removeItem('mitre_v18_cb_mode');
+            } else if (localStorage.getItem('mitre_v18_cb_mode') !== null) {
+                // Stale legacy key with no migration trigger — clean up.
+                localStorage.removeItem('mitre_v18_cb_mode');
+            }
+        } catch (e) { /* ignore */ }
+
+        if (preset === 'custom' && custom && typeof custom === 'object') {
+            applyPalette('custom', custom);
+        } else if (preset && PALETTE_PRESETS[preset]) {
+            applyPalette(preset);
+        } else {
+            applyPalette('default');
+        }
+    }
+
+    // Sync the Settings tab UI (radios + colour pickers + custom section visibility)
+    // to the current palette state. Safe to call before the tab is populated.
+    function syncSettingsTabUI() {
+        const radios = document.querySelectorAll('input[name="palette-preset"]');
+        radios.forEach(r => { r.checked = (r.value === activePresetName); });
+
+        const customSection = document.getElementById('custom-palette-section');
+        if (customSection) {
+            customSection.style.display = activePresetName === 'custom' ? 'block' : 'none';
+        }
+
+        const pickerMap = {
+            'picker-coverage-low':  activePalette.coverageLow,
+            'picker-coverage-high': activePalette.coverageHigh,
+            'picker-success':       activePalette.success,
+            'picker-warning':       activePalette.warning,
+            'picker-danger':        activePalette.danger,
+            'picker-accent':        activePalette.accent
+        };
+        Object.keys(pickerMap).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = pickerMap[id];
+        });
+    }
+
+    function selectPalettePreset(presetName) {
+        if (presetName === 'custom') {
+            // Seed Custom from whatever's currently active so the user has a starting point.
+            const seed = {
+                coverageLow: activePalette.coverageLow,
+                coverageHigh: activePalette.coverageHigh,
+                success: activePalette.success,
+                warning: activePalette.warning,
+                danger: activePalette.danger,
+                accent: activePalette.accent
+            };
+            applyPalette('custom', seed);
+        } else {
+            applyPalette(presetName);
+        }
+    }
+
+    function updateCustomColour(key, value) {
+        const overrides = {
+            coverageLow: activePalette.coverageLow,
+            coverageHigh: activePalette.coverageHigh,
+            success: activePalette.success,
+            warning: activePalette.warning,
+            danger: activePalette.danger,
+            accent: activePalette.accent
+        };
+        overrides[key] = value;
+        applyPalette('custom', overrides);
+    }
+
+    function resetPaletteToDefaults() {
+        try {
+            localStorage.removeItem('mitre_v18_palette_preset');
+            localStorage.removeItem('mitre_v18_custom_palette');
+        } catch (e) {}
+        applyPalette('default');
+    }
+
+    function initSettingsTab() {
+        // Inline event handlers in the HTML wire the radios + pickers + reset button
+        // to selectPalettePreset / updateCustomColour / resetPaletteToDefaults.
+        // We just need to sync the UI to the current palette state once at boot.
+        syncSettingsTabUI();
+    }
+
+    function openSettingsModal() {
+        const modal = document.getElementById('settings-modal');
+        if (!modal) return;
+        syncSettingsTabUI();
+        modal.classList.add('active');
+        const closeBtn = modal.querySelector('.close-modal');
+        if (closeBtn) closeBtn.focus();
+    }
+
+    function closeSettingsModal() {
+        const modal = document.getElementById('settings-modal');
+        if (modal) modal.classList.remove('active');
+        const cog = document.getElementById('settings-cog');
+        if (cog) cog.focus();
+    }
+
+    // Close settings modal on Esc or click outside the content
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const modal = document.getElementById('settings-modal');
+        if (modal && modal.classList.contains('active')) closeSettingsModal();
+    });
+    document.addEventListener('click', (e) => {
+        const modal = document.getElementById('settings-modal');
+        if (!modal || !modal.classList.contains('active')) return;
+        if (e.target === modal) closeSettingsModal();
+    });
+
+    window.selectPalettePreset = selectPalettePreset;
+    window.updateCustomColour = updateCustomColour;
+    window.resetPaletteToDefaults = resetPaletteToDefaults;
+    window.openSettingsModal = openSettingsModal;
+    window.closeSettingsModal = closeSettingsModal;
     
     // Filter nodes to visible depth range to prevent rendering performance issues
     function getVisibleDescendants(node, maxDepth = 6, currentDepth = 0) {
@@ -2874,6 +5114,8 @@
             .join("path")
             .attr("fill", d => getCoverageColor(d.data.score || 0))
             .attr("fill-opacity", 0.95)
+            .attr("opacity", d => d.data._actorScope === false ? 0 : 1)
+            .attr("pointer-events", d => d.data._actorScope === false ? "none" : "auto")
             .attr("stroke", "#000")
             .attr("stroke-width", 0.5)
             .attr("d", d => arc(d.current))
@@ -2911,7 +5153,9 @@
 
             path.data(visibleNodes, d => d.ancestors().map(n => n.data.id).reverse().join("."))
                 .transition().duration(300)
-                .attr("fill", d => getCoverageColor(d.data.score || 0));
+                .attr("fill", d => getCoverageColor(d.data.score || 0))
+                .attr("opacity", d => d.data._actorScope === false ? 0 : 1);
+            path.attr("pointer-events", d => d.data._actorScope === false ? "none" : "auto");
 
             calculateCoverage(fullDataset);
             updateStats();
@@ -3337,6 +5581,92 @@
             if (fullDataset && initializationComplete) drawChart(fullDataset);
         }, 250);
     });
+
+    // ============================================================================
+    // SIDEBAR RESIZE
+    // ============================================================================
+    //
+    // Drag the right edge of the sidebar to resize it. Width is persisted to
+    // localStorage and restored on load. Bounded to keep both panes usable.
+    // No-ops on mobile (CSS hides the handle via the max-width: 768px query).
+
+    const SIDEBAR_MIN_WIDTH = 300;
+    const SIDEBAR_MAX_WIDTH = 720;
+
+    function applySidebarWidth(px) {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+        // Don't fight the mobile CSS (which forces width: 100% !important).
+        if (window.matchMedia('(max-width: 768px)').matches) return;
+        const clamped = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, px));
+        sidebar.style.width = clamped + 'px';
+    }
+
+    function loadSidebarWidth() {
+        try {
+            const saved = localStorage.getItem('mitre_v18_sidebar_width');
+            if (saved) {
+                const px = parseInt(saved, 10);
+                if (!isNaN(px)) applySidebarWidth(px);
+            }
+        } catch (e) { /* ignore */ }
+    }
+
+    function initSidebarResize() {
+        const handle = document.getElementById('sidebar-resize-handle');
+        const sidebar = document.getElementById('sidebar');
+        if (!handle || !sidebar) return;
+
+        let dragging = false;
+        let chartRedrawTimer = null;
+
+        const onMouseMove = (e) => {
+            if (!dragging) return;
+            // The sidebar's left edge is at x=0 (body flex), so mouse X = new width.
+            applySidebarWidth(e.clientX);
+            // Throttle the sunburst redraw so dragging stays smooth.
+            clearTimeout(chartRedrawTimer);
+            chartRedrawTimer = setTimeout(() => {
+                if (fullDataset && initializationComplete) drawChart(fullDataset);
+            }, 60);
+        };
+
+        const onMouseUp = () => {
+            if (!dragging) return;
+            dragging = false;
+            handle.classList.remove('dragging');
+            document.body.classList.remove('sidebar-dragging');
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            // Final redraw at rest + persist
+            if (fullDataset && initializationComplete) drawChart(fullDataset);
+            try {
+                localStorage.setItem('mitre_v18_sidebar_width', String(sidebar.offsetWidth));
+            } catch (e) { /* ignore */ }
+        };
+
+        handle.addEventListener('mousedown', (e) => {
+            if (window.matchMedia('(max-width: 768px)').matches) return;
+            e.preventDefault();
+            dragging = true;
+            handle.classList.add('dragging');
+            document.body.classList.add('sidebar-dragging');
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+
+        // Double-click resets to default width.
+        handle.addEventListener('dblclick', () => {
+            applySidebarWidth(380);
+            try { localStorage.removeItem('mitre_v18_sidebar_width'); } catch (e) {}
+            if (fullDataset && initializationComplete) drawChart(fullDataset);
+        });
+    }
+
+    // Restore saved width as early as possible so the chart sizes correctly on first draw.
+    loadSidebarWidth();
+    // Hook up the drag handle as soon as the DOM is ready.
+    initSidebarResize();
 
     init();
 </script>

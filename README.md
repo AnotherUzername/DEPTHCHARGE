@@ -1,37 +1,48 @@
-# MITRE ATT&CK v18 Detection Depth Map
+# MITRE DEPTHCHARGE
 
-**A native MITRE ATT&CK v18 visualization tool for detection engineers.**
+**An interactive MITRE ATT&CK v18 visualization tool for detection engineers — coverage, threat-actor focus, and gap analysis in one sunburst.**
 
-This Proof of Concept (POC) tool moves beyond the traditional "Bingo Card" by visualizing detection depth across the full v18 hierarchy. It allows for multi-layer import, temporal comparison, and granular gap analysis.
+Built by [@AnotherUzername](https://github.com/AnotherUzername) and [@Pr0kythera](https://github.com/Pr0kythera).
+
+This tool moves beyond the traditional "Bingo Card" by visualizing detection depth across the full v18 hierarchy. It supports multi-layer import, temporal comparison, granular gap analysis, threat-actor (intrusion-set) filtering, and exporting your manual or layer-driven coverage state back out as a re-importable v18 layer.
 
 ## Key Features
 
-* **v18 Native Hierarchy**: Visualizes the complete path: `Tactic → Technique → Sub-technique → Strategy → Analytic → Data Component`.
-* **Multi-Layer Management**: Import, toggle, and merge multiple coverage layers (e.g., Visibility + Threat Intel + Active Detections).
-* **Layer Comparison (Diffing)**: Compare two timestamped layers to visualize coverage drift, improvements, or regressions over time.
-* **Contextual Activation**: Prevents false positive coverage by activating Data Components only within specific detection paths.
-* **Gap Analysis**: Identify where you have data visibility (Layer A) and threat intelligence (Layer B) but lack detection rules (Layer C).
-* **Local Persistence**: Layers are saved automatically to browser `localStorage`.
+* **v18 Native Hierarchy** — visualizes the complete path: `Tactic → Technique → Sub-technique → Detection Strategy → Analytic → Data Component`.
+* **Multi-Layer Management** — import, toggle, and merge multiple coverage layers (e.g. Visibility + Threat Intel + Active Detections).
+* **Layer Comparison (Diffing)** — compare two timestamped layers to visualize coverage drift, improvements, or regressions over time.
+* **Threat Actor Filtering** — select one or many MITRE intrusion-sets (APT29, Scattered Spider, FIN7…) and the sunburst hides every technique they don't use, leaving only the relevant TTPs lit. Supports multi-select for sectoral threat modelling.
+* **Actor Coverage Panel** — for the selected actor(s), see techniques used, covered, gaps with data visibility, gaps without telemetry, coverage percentage, detection depth (avg/median/max active data components per covered technique), per-tactic breakdown, and a top-uncovered list.
+* **Multi-Actor Overlap** — when 2+ actors are selected, shared/union/unique counts so you can prioritise techniques common across your modelled adversaries.
+* **Contextual Activation** — prevents false-positive coverage by only activating Data Components within their specific detection path.
+* **Gap Analysis** — identify where you have data visibility but lack detection rules (actionable), vs. where MITRE defines no telemetry at all (needs investment).
+* **Customisable Palette + CVD-Safe Mode** — pick between Default (red→green traffic light), CVD-safe (viridis + Wong), High-contrast greyscale, or build your own with the per-colour pickers. The 10-stop coverage gradient is auto-interpolated in Lab colour space between your two chosen endpoints.
+* **Resizable Sidebar** — drag the right edge to set your preferred width; double-click the handle to reset to default.
+* **Export Current Coverage** — capture every active Data Component (manual right-click marking, an imported layer, or both) into a v18-schema JSON layer that re-imports cleanly.
+* **Local Persistence** — layers, actor selection, palette, sidebar width, and panel-collapse state all save to browser `localStorage`.
 
 ## Visualization Hierarchy
 
 Unlike standard navigators, this tool renders the full depth of the v18 data model:
 
-1.  **Tactic** (e.g., Credential Access)
-2.  **Technique** (e.g., T1110 - Brute Force)
-3.  **Sub-technique** (e.g., T1110.003 - Password Spraying)
-4.  **Detection Strategy** (e.g., DET0487 - Detect volume-based failures)
-5.  **Analytic** (e.g., AN1336 - Windows Event Logic)
-6.  **Data Component** (e.g., DS0028 - Logon Session)
+1. **Tactic** (e.g. Credential Access)
+2. **Technique** (e.g. T1110 — Brute Force)
+3. **Sub-technique** (e.g. T1110.003 — Password Spraying)
+4. **Detection Strategy** (e.g. DET0487 — Detect volume-based failures)
+5. **Analytic** (e.g. AN1336 — Windows Event Logic)
+6. **Data Component** (e.g. DS0028 — Logon Session)
 
 ## Usage Guide
 
-1.  **Load**: Open `attack_v18_detection_layers.html` (fetches MITRE STIX data automatically).
-2.  **Import**: Drag & drop valid v18 JSON layers (see schema below).
-3.  **Analyze**:
-    * **Toggle**: Use the sidebar to enable/disable specific layers.
-    * **Compare**: Load exactly two layers with timestamps and click **Compare Layers** to view a diff report.
-    * **Inspect**: Hover over segments to see layer sources and metadata.
+1. **Load** — open `attack_v18_detection_layers.html` in a modern browser (it fetches the MITRE STIX bundle automatically). No build step or server required.
+2. **Import** — drag & drop valid v18 JSON layers onto the Detection Layers tab (see schema below).
+3. **Analyze**:
+   * **Toggle** — use the Detection Layers tab to enable/disable specific layers.
+   * **Filter by actor** — open the Threat Actors tab; type a name, alias, or ATT&CK ID (e.g. "Cozy Bear", "APT29", "G0016") and tick the actor(s) you want to focus on. Out-of-scope techniques fade out; the Actor Coverage panel populates below.
+   * **Compare** — load exactly two layers with timestamps and click **Compare Layers** for a diff report.
+   * **Inspect** — hover over segments to see layer sources and metadata; click to zoom; right-click (when no layers are active) to mark coverage manually.
+   * **Export** — click **Export Current Coverage as Layer** on the Detection Layers tab to download whatever is currently active as a re-importable JSON file.
+4. **Settings** — click the cog icon in the top-right of the chart area to change palette (including a CVD-safe option), build a custom colour scheme, or reset to defaults.
 
 ## Detection Layer Schema (v18)
 
@@ -43,7 +54,7 @@ Files must be valid JSON. The tool uses a specialized schema to support v18 prim
   "version": "1.0",
   "domain": "enterprise-attack",
   "description": "Production detections",
-  "timestamp": "2026-01-06T12:00:00Z", // Required for comparison
+  "timestamp": "2026-01-06T12:00:00Z",
   "detections": [
     {
       "ruleName": "Brute Force Detection",
@@ -52,10 +63,23 @@ Files must be valid JSON. The tool uses a specialized schema to support v18 prim
       "techniques": ["T1110"],
       "subtechniques": ["T1110.003"],
       "detectionStrategies": ["DET0487"],
-      "analytics": ["AN1336"], // Platform-specific logic
-      "dataComponents": ["DS0028"], // The actual evidence used
+      "analytics": ["AN1336"],
+      "dataComponents": ["DS0028"],
       "score": 1.0,
       "enabled": true
     }
   ]
 }
+```
+
+`timestamp` is required for layer comparison. All ID fields default to `[]` when omitted, but a detection must specify at least one of `techniques` or `dataComponents`.
+
+## Accessibility
+
+* **CVD-safe palette** — built-in viridis + Wong palette for users with deuteranopia, protanopia, or tritanopia. Pick it from the cog → Settings.
+* **Custom palette** — colour-pick the coverage endpoints and the semantic trio yourself if neither preset works.
+* **Keyboard navigation** — actor list, tactic rows, and the sunburst centre are all keyboard-reachable; Tab to focus, Space/Enter to activate, Esc closes the search and the settings modal.
+
+## Credits
+
+Built by [@AnotherUzername](https://github.com/AnotherUzername) and [@Pr0kythera](https://github.com/Pr0kythera). See `Blog.md` for the design rationale.

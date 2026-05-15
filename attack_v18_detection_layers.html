@@ -510,6 +510,127 @@
             margin-top: 2px;
         }
 
+        /* ==== Selection Details hierarchy chain ==== */
+        #detail-hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        /* Visual rail running through the chain — clarifies parent-child flow */
+        .detail-card-connector {
+            width: 2px;
+            height: 8px;
+            background: var(--border-color);
+            margin-left: 18px;
+        }
+
+        .detail-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            border-left: 3px solid transparent;
+            border-radius: 4px;
+            padding: 8px 10px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+            position: relative;
+        }
+
+        .detail-card:hover {
+            background: rgba(16, 185, 129, 0.06);
+            border-color: var(--border-highlight);
+        }
+
+        .detail-card.selected {
+            border-color: var(--accent-color);
+            border-left-color: var(--accent-color);
+            background: rgba(16, 185, 129, 0.08);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .detail-card:focus-visible {
+            outline: 2px solid var(--accent-color);
+            outline-offset: -2px;
+        }
+
+        .detail-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .detail-card-type {
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            letter-spacing: 0.6px;
+            font-weight: 600;
+        }
+
+        .detail-card-link {
+            font-size: 0.65rem;
+            color: var(--accent-color);
+            text-decoration: none;
+            font-family: var(--font-mono);
+            border-bottom: 1px dotted rgba(16, 185, 129, 0.5);
+            white-space: nowrap;
+            padding: 0;
+        }
+
+        .detail-card-link:hover {
+            color: var(--text-main);
+            border-bottom-color: var(--accent-color);
+        }
+
+        .detail-card-id-badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 2px;
+            font-size: 0.65rem;
+            font-family: var(--font-mono);
+            font-weight: bold;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-color);
+            border: 1px solid var(--accent-color);
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        .detail-card-name {
+            display: inline;
+            font-weight: 600;
+            color: var(--text-main);
+            font-size: 0.82rem;
+            vertical-align: middle;
+        }
+
+        .detail-card-log-source {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            font-style: italic;
+        }
+
+        .detail-card-desc {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-top: 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .detail-card.selected .detail-card-desc {
+            display: block;
+            -webkit-line-clamp: none;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+
         /* Search Component */
         .search-container {
             position: relative;
@@ -1993,17 +2114,13 @@
 
             <div id="node-details" style="display:none; margin-top: 20px;" aria-live="polite">
                 <h2>Selection Details</h2>
-                <div id="detail-id-badge" class="id-badge"></div>
-                <div id="detail-name" style="font-weight:bold; color:white; margin-bottom: 5px; font-size: 0.95rem;"></div>
-                <div id="detail-type" style="color:#888; font-size: 0.75rem; margin-bottom: 10px; text-transform: uppercase;"></div>
-                <div id="detail-log-source" class="log-source"></div>
-                
-                <div class="score-card" style="margin-top:15px; background: rgba(0,0,0,0.2);">
+
+                <div class="score-card" style="margin-top: 4px; margin-bottom: 12px; background: rgba(0,0,0,0.2);">
                     <div class="score-label">Branch Coverage</div>
                     <div class="score-big" id="node-score">0%</div>
                 </div>
-                
-                <p id="detail-desc" style="font-size: 0.8rem; color: #aaa; line-height: 1.4; max-height: 200px; overflow-y: auto; margin-top: 10px;"></p>
+
+                <div id="detail-hierarchy" role="list" aria-label="Selection ancestor chain"></div>
             </div>
 
             <div class="control-group" style="margin-top: auto; padding-top: 20px;">
@@ -4300,20 +4417,25 @@
                 
                 layer.detections.forEach(detection => {
                     if (detection.enabled === false) return;
-                    
+
                     const techniques = [...(detection.techniques || []), ...(detection.subtechniques || [])];
                     const strategies = detection.detectionStrategies || [];
                     const analytics = detection.analytics || [];
                     const dataComponents = detection.dataComponents || [];
-                    
+                    // Normalise tactic shortnames once (lowercase, trimmed) so the
+                    // comparison in activateContextual is stable.
+                    const tactics = (detection.tactics || [])
+                        .map(t => typeof t === 'string' ? t.toLowerCase().trim() : '')
+                        .filter(Boolean);
+
                     // Track missing IDs
                     techniques.forEach(id => {
                         if (!findNodeById(fullDataset, id, 'Technique')) layer.stats.missingIds.techniques.add(id);
                     });
-                    
+
                     // Activation Logic
                     activatedCount += activateContextual(fullDataset, {
-                        techniques, strategies, analytics, dataComponents,
+                        tactics, techniques, strategies, analytics, dataComponents,
                         layerId: layer.id,
                         ruleName: detection.ruleName
                     });
@@ -4343,11 +4465,24 @@
     
     function activateContextual(node, context, currentPath = {}) {
         let count = 0;
-        
+        const tacticsConstrained = Array.isArray(context.tactics) && context.tactics.length > 0;
+
+        // Tactic gating — when the detection specifies tactics, only descend with
+        // inTactic=true under matching tactic subtrees. This prevents a technique
+        // that appears under multiple tactics (e.g. T1078 Valid Accounts is in
+        // Initial Access, Persistence, Privilege Escalation, AND Defense Evasion)
+        // from activating across all of them when only one was intended.
+        if (node.type === 'Tactic' && tacticsConstrained) {
+            const tacticShort = (node.name || '').toLowerCase().trim().replace(/\s+/g, '-');
+            if (context.tactics.includes(tacticShort)) {
+                currentPath.inTactic = true;
+            }
+        }
+
         if (node.type === 'Technique' && context.techniques.includes(node.id)) {
             currentPath.inTechnique = true;
         }
-        
+
         // Check sub-techniques
         if (node.type === 'Sub-Technique') {
             const isDirectlyTargeted = context.techniques.includes(node.id);
@@ -4355,25 +4490,29 @@
                 currentPath.inTechnique = true;
             }
         }
-        
+
         if (node.type === 'Detection Strategy' && context.strategies.includes(node.id)) {
             currentPath.inStrategy = true;
         }
-        
+
         if (node.type === 'Analytic' && context.analytics.includes(node.id)) {
             currentPath.inAnalytic = true;
         }
-        
+
         // Data Component Activation Logic
         if (node.type === 'Data Component' && context.dataComponents.includes(node.id)) {
+            const tacticMatch    = !tacticsConstrained || currentPath.inTactic;
             const techniqueMatch = context.techniques.length === 0 || currentPath.inTechnique;
-            const strategyMatch = context.strategies.length === 0 || currentPath.inStrategy;
-            const analyticMatch = context.analytics.length === 0 || currentPath.inAnalytic;
-            
+            const strategyMatch  = context.strategies.length === 0 || currentPath.inStrategy;
+            const analyticMatch  = context.analytics.length === 0 || currentPath.inAnalytic;
+
             const directActivation = context.strategies.length === 0 && context.analytics.length === 0 &&
                                    context.techniques.length > 0 && context.dataComponents.length > 0;
-            
-            if ((directActivation && techniqueMatch) || (techniqueMatch && strategyMatch && analyticMatch)) {
+
+            const matchesDirect    = directActivation && tacticMatch && techniqueMatch;
+            const matchesFullChain = tacticMatch && techniqueMatch && strategyMatch && analyticMatch;
+
+            if (matchesDirect || matchesFullChain) {
                 if (!node.layerSources) node.layerSources = [];
                 if (!node.layerSources.includes(context.layerId)) {
                     node.layerSources.push(context.layerId);
@@ -4382,13 +4521,13 @@
                 count++;
             }
         }
-        
+
         if (node.children) {
             node.children.forEach(child => {
                 count += activateContextual(child, context, {...currentPath});
             });
         }
-        
+
         return count;
     }
     
@@ -5234,23 +5373,148 @@
         document.getElementById("total-components").innerText = fullDataset.leafCount || 0;
     }
 
-    function updateSidePanel(d) {
-        document.getElementById("node-details").style.display = "block";
-        document.getElementById("detail-name").innerText = d.data.name;
-        document.getElementById("detail-id-badge").innerText = d.data.id || "N/A";
-        document.getElementById("detail-type").innerText = d.data.type;
-        document.getElementById("node-score").innerText = Math.round((d.data.score || 0) * 100) + "%";
-        document.getElementById("node-score").style.color = getCoverageColor(d.data.score || 0);
-        document.getElementById("detail-desc").innerText = d.data.description || "No description available.";
-        
-        // Handle Log Source visibility safely
-        const logDiv = document.getElementById("detail-log-source");
-        if (d.data.logSourceName) {
-            logDiv.style.display = 'block';
-            logDiv.innerText = `Log Source: ${d.data.logSourceName}`;
-        } else {
-            logDiv.style.display = 'none';
+    /**
+     * Returns the public MITRE ATT&CK page URL for a d3 hierarchy node, or null
+     * if the node type doesn't have a stable URL on attack.mitre.org.
+     *
+     * All v18 primitives have pages as of the v18 release:
+     *   - Tactic             → /tactics/TAxxxx/
+     *   - Technique          → /techniques/Txxxx/
+     *   - Sub-Technique      → /techniques/Tparent/Tchild/
+     *   - Detection Strategy → /detectionstrategies/DETxxxx/
+     *   - Analytic           → /detectionstrategies/<parent-DET>/#<AN-ID>
+     *                          (analytics are anchor fragments on their parent
+     *                           Detection Strategy page, not standalone URLs)
+     *   - Data Component     → /datacomponents/DCxxxx/
+     *
+     * Takes the d3 node (not just data) so the Analytic case can read its
+     * parent Detection Strategy via node.parent.
+     */
+    function getMitreUrl(node) {
+        if (!node || !node.data || !node.data.id) return null;
+        const data = node.data;
+        const id = data.id;
+        switch (data.type) {
+            case 'Tactic':
+                if (/^TA\d+$/.test(id)) return `https://attack.mitre.org/tactics/${id}/`;
+                return null;
+            case 'Technique':
+                if (/^T\d+$/.test(id)) return `https://attack.mitre.org/techniques/${id}/`;
+                return null;
+            case 'Sub-Technique': {
+                const m = id.match(/^(T\d+)\.(\d+)$/);
+                if (m) return `https://attack.mitre.org/techniques/${m[1]}/${m[2]}/`;
+                return null;
+            }
+            case 'Detection Strategy':
+                if (/^DET\d+$/.test(id)) return `https://attack.mitre.org/detectionstrategies/${id}/`;
+                return null;
+            case 'Analytic': {
+                if (!/^AN\d+$/.test(id)) return null;
+                const parent = node.parent;
+                const parentData = parent && parent.data;
+                if (parentData && parentData.type === 'Detection Strategy'
+                    && /^DET\d+$/.test(parentData.id)) {
+                    return `https://attack.mitre.org/detectionstrategies/${parentData.id}/#${id}`;
+                }
+                return null;
+            }
+            case 'Data Component':
+                if (/^DC\d+$/.test(id)) return `https://attack.mitre.org/datacomponents/${id}/`;
+                return null;
+            default:
+                return null;
         }
+    }
+
+    /**
+     * Renders the Selection Details panel as a top-down hierarchy:
+     * Tactic → Technique → Sub-Technique → Detection Strategy → Analytic → Data Component.
+     * Each level is its own card with type, ID, name, optional MITRE link, and description.
+     * The currently-selected node is highlighted. Clicking another card re-zooms
+     * the sunburst to that ancestor.
+     */
+    function updateSidePanel(d) {
+        const panel = document.getElementById("node-details");
+        if (!panel) return;
+        panel.style.display = "block";
+
+        // Update the branch coverage card (top of the panel).
+        const scoreEl = document.getElementById("node-score");
+        if (scoreEl) {
+            scoreEl.innerText = Math.round((d.data.score || 0) * 100) + "%";
+            scoreEl.style.color = getCoverageColor(d.data.score || 0);
+        }
+
+        // Build the ancestor chain root-to-leaf, dropping the synthetic Root node.
+        const chain = d.ancestors().reverse().filter(a => a.data.type !== 'Root');
+
+        const hierarchyEl = document.getElementById("detail-hierarchy");
+        if (!hierarchyEl) return;
+
+        hierarchyEl.innerHTML = chain.map((node, idx) => {
+            const data = node.data;
+            const isSelected = node === d;
+            const url = getMitreUrl(node);
+            const safeName = escapeHtml(data.name || '');
+            const safeId = escapeHtml(data.id || 'N/A');
+            const safeType = escapeHtml(data.type || '');
+            const safeDesc = escapeHtml(data.description || 'No description available.');
+
+            const linkHtml = url
+                ? `<a class="detail-card-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${safeName} on attack.mitre.org">→ MITRE</a>`
+                : '';
+
+            const logSourceHtml = (isSelected && data.logSourceName)
+                ? `<div class="detail-card-log-source">Log Source: ${escapeHtml(data.logSourceName)}</div>`
+                : '';
+
+            const connector = idx > 0 ? '<div class="detail-card-connector" aria-hidden="true"></div>' : '';
+
+            return `
+                ${connector}
+                <div class="detail-card ${isSelected ? 'selected' : ''}"
+                     role="listitem"
+                     tabindex="0"
+                     data-node-id="${safeId}"
+                     data-node-type="${safeType}"
+                     ${isSelected ? 'aria-current="true"' : ''}>
+                    <div class="detail-card-header">
+                        <span class="detail-card-type">${safeType}</span>
+                        ${linkHtml}
+                    </div>
+                    <div>
+                        <span class="detail-card-id-badge">${safeId}</span>
+                        <span class="detail-card-name">${safeName}</span>
+                    </div>
+                    ${logSourceHtml}
+                    <div class="detail-card-desc">${safeDesc}</div>
+                </div>
+            `;
+        }).join('');
+
+        // Re-selection: clicking another card in the chain zooms the sunburst to
+        // that ancestor. Skip the click if it landed on the MITRE link (which
+        // should follow its href instead).
+        hierarchyEl.querySelectorAll('.detail-card').forEach(card => {
+            const navigate = (e) => {
+                if (e && e.target && e.target.closest('.detail-card-link')) return;
+                const nodeId = card.dataset.nodeId;
+                const nodeType = card.dataset.nodeType;
+                if (!nodeId || !root) return;
+                const target = root.descendants().find(n =>
+                    n.data && n.data.id === nodeId && n.data.type === nodeType
+                );
+                if (target && target !== d) clicked(null, target);
+            };
+            card.addEventListener('click', navigate);
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigate(e);
+                }
+            });
+        });
     }
 
     function updateBreadcrumbs(d) {

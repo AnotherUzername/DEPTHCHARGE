@@ -1,6 +1,6 @@
 # What's New — Session Changelog
 
-Features added in this session, grouped by area. All changes live in `attack_v18_detection_layers.html`.
+Features added in this session, grouped by area. All changes live in `DEPTHCHARGE.HTML`.
 
 ---
 
@@ -58,7 +58,7 @@ A new analysis panel that appears in the Threat Actors tab whenever one or more 
 - **New "Export Current Coverage as Layer" button** in the Detection Layers tab control group.
 - Walks the hierarchy and finds every active Data Component (whether from a loaded layer, manual right-click marking, or both).
 - Groups DCs by `(tactic, technique, sub-technique, strategy, analytic)` lineage — each unique lineage becomes one detection rule in the exported JSON.
-- Writes a v18-schema JSON file (`depthcharge_coverage_YYYY-MM-DD.json`) with sequential `DEPTHCHARGE-EXP-0001…` rule IDs. Ready to re-import or share.
+- Writes a detection-layer JSON file (`depthcharge_coverage_YYYY-MM-DD.json`) with sequential `DEPTHCHARGE-EXP-0001…` rule IDs. Ready to re-import or share.
 - Notification confirms how many detections were written.
 
 ## Sunburst interaction

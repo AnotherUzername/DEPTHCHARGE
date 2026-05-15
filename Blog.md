@@ -1,4 +1,4 @@
-# Beyond the Bingo Card: Engineering Detection Depth with MITRE ATT&CK v18
+# Beyond the Bingo Card: Engineering Detection Depth with MITRE ATT&CK
 
 I'm sure many of you are more than aware about the fundamental challenges we have in our industry regarding how we measure and report detection capabilities. For years, and for good reason, the MITRE ATT&CK Matrix has been our "North Star" and it's certainly served us well providing much needed organisation and clarity regarding how to prioritise gaps in our detection coverage. However the focus on this has led us into an oversimplification. The reduction of complex, multi-dimensional attack surfaces into a two-dimensional ["Bingo Card"](https://www.forrester.com/blogs/the-mitre-attck-framework-is-not-a-bingo-card/). That being said I am by no means deriding the practice of measuring coverage and identifying gaps via Mitre Navigator layers. Especially since last year we gave a presentation on exactly this methodology at Bsides Birmingham!
 
@@ -13,11 +13,11 @@ To highlight some key shortcomings in the current approach:
 * **Binary Metrics**: It fails to capture the **robustness** and **efficacy** of a detection. A fragile IOC detection (based on a rotating IP) is visually identical to a more robust "Standard Deviation Anomaly" detection or fancy Machine Learning Model (based on statistical anomalies), yet their operational value is often worlds apart. Whilst I don't extensively cover any proposed solutions in this article there has been some great writeups covering this topic like [DRAPE](https://detect.fyi/introducing-the-drape-index-how-to-measure-in-success-in-a-threat-detection-practice-154fd977f731)
 
 
-## Potential solutions via MITRE ATT&CK v18
+## Potential solutions via the modern ATT&CK schema
 
-I had been eagerly anticipating the release of MITRE ATT&CK v18 (October 2025) after reading this [blog post](https://medium.com/mitre-attack/smarter-detection-strategies-in-attack-7e6738fec31f) in the summer by Lex Crumpton. It appeared to be the missing concepts needed to bridge the gap and transform the framework from a flat "Dictionary" into more of a "Relational Database" of defense. By introducing **Detection Strategies (DETxxxx)** and **Analytics (ANxxxx)**v18 provides the primitives needed to more accurately represent the depth of coverage.
+I had been eagerly anticipating MITRE's introduction of new detection primitives after reading this [blog post](https://medium.com/mitre-attack/smarter-detection-strategies-in-attack-7e6738fec31f) by Lex Crumpton. It appeared to be the missing concepts needed to bridge the gap and transform the framework from a flat "Dictionary" into more of a "Relational Database" of defense. By introducing **Detection Strategies (DETxxxx)** and **Analytics (ANxxxx)**, ATT&CK now provides the primitives needed to more accurately represent the depth of coverage.
 
-Mulling this over Christmas I found this article back from 2019 [Visualising Att&ck](https://medium.com/mitre-attack/visualizing-attack-f5e1766b42a6) which I took as inspiration to create an interactive Sunburst visualisation of the new Mitre v18 framework. The goal is a tool to allow people to upload their own layers similar to the Mitre Navigator tool. So with some obvious heavy lifting by LLM's I've built the **MITRE ATT&CK v18 Detection Depth Map**, a sunburst-based visualization that fully embraces the v18 hierarchy:
+Mulling this over Christmas I found this article back from 2019 [Visualising Att&ck](https://medium.com/mitre-attack/visualizing-attack-f5e1766b42a6) which I took as inspiration to create an interactive Sunburst visualisation of the modern Mitre framework. The goal is a tool to allow people to upload their own layers similar to the Mitre Navigator tool. So with some obvious heavy lifting by LLM's I've built **MITRE DEPTHCHARGE**, a sunburst-based visualization that fully embraces the full ATT&CK detection hierarchy:
 
 As a pre-amble I will be the first to concede this is practically useless unless Detection Engineering teams tag their detections with all of the new primitives to accurately represent their coverage on this tool. Currently I'd be surprised if any team is doing this especially as there aren't many tools to visualise the mapping. However this would have been the case only a few years ago with Mitre Techniques not being represented on Detection Rules. So whilst this proposed solution is somewhat academic in nature and a lot of heavy lifting would be required to get value from it my only hope is to highlight some shortcomings and propose potential tangible solutions. Caveat emptor and all that..
 
@@ -39,15 +39,15 @@ Data Components (DSxxxx) act as the **Bill of Materials** for detection. Data Co
 
 ## Final Thoughts
 
-Even at the Data Component layer due to the incomplete nature Mitre Att&ck has, we're still going to not get a perfect representation of your environment. This would likely require a method to build your own entire Organization Matrix which has every SAAS application and Software listed. But rather than letting perfect be the enemy of the good, I feel like we've been able to highlight some of the known gaps in traditional Detection mapping to Techniques and Tactics and how we can set our sights on new primitives offered by the V18 update. 
+Even at the Data Component layer due to the incomplete nature Mitre Att&ck has, we're still going to not get a perfect representation of your environment. This would likely require a method to build your own entire Organization Matrix which has every SAAS application and Software listed. But rather than letting perfect be the enemy of the good, I feel like we've been able to highlight some of the known gaps in traditional Detection mapping to Techniques and Tactics and how we can set our sights on the new detection primitives ATT&CK now exposes. 
 
 ## The Tool POC
 
-https://pr0kythera.github.io/Mitre-Attack-Sunburst/attack_v18_detection_layers.html
+https://pr0kythera.github.io/DEPTHCHARGE/DEPTHCHARGE.HTML
 
 Rather than just discuss theory I wanted to construct this tool into a flawed but hopefully illustrative vision of the goal. From the traditional 500 or so subtechniques we have over 5000 components. It has basic functionality to enable data components which will light up green and the ability to import your own layers. This was hastily put together and not designed for actual enterprise use in its current iteration.
 
-This POC is very much just that, there are plenty of improvements I'm already planning to add. Also admittedly the UI needs **a lot** of work.. But hopefully as an idea and inspiration for how to better represent coverage using the new Mitre Att&ck v18 Schema it has some use
+This POC is very much just that, there are plenty of improvements I'm already planning to add. Also admittedly the UI needs **a lot** of work.. But hopefully as an idea and inspiration for how to better represent coverage using the modern Mitre Att&ck schema it has some use
 
 Some future improvements, any other ideas are welcome:
 

@@ -11,7 +11,7 @@
                    img-src 'self' data:;
                    object-src 'none';
                    base-uri 'self';">
-    <title>MITRE DEPTHCHARGE — ATT&CK v18 Detection Depth Map</title>
+    <title>MITRE DEPTHCHARGE — ATT&CK Detection Depth Map</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap');
@@ -2045,7 +2045,7 @@
 
     <div id="loader" role="alert" aria-busy="true">
         <div class="spinner"></div>
-        <div id="loading-text">Accessing MITRE v18 Data...</div>
+        <div id="loading-text">Accessing MITRE ATT&CK Data...</div>
         <div id="loading-subtext">Fetching enterprise-attack.json</div>
     </div>
 
@@ -2070,7 +2070,7 @@
 
         <div id="tab-overview" class="tab-content active" role="tabpanel" aria-labelledby="tab-btn-overview">
             <h1>MITRE DEPTHCHARGE</h1>
-            <div class="subtitle">ATT&amp;CK v18 Detection Depth Map</div>
+            <div class="subtitle">ATT&amp;CK Detection Depth Map</div>
             <div class="credits">
                 by
                 <a href="https://github.com/AnotherUzername" target="_blank" rel="noopener noreferrer">@AnotherUzername</a>
@@ -2256,7 +2256,7 @@
             <div class="subtitle">Import and manage detection coverage layers</div>
 
             <div class="file-drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Upload JSON layer file">
-                <div style="font-size: 0.9rem; margin-bottom: 5px;">Drop v18 Detection Layer JSON</div>
+                <div style="font-size: 0.9rem; margin-bottom: 5px;">Drop Detection Layer JSON</div>
                 <div class="help-text">or click to browse</div>
             </div>
             <input type="file" id="file-input" accept=".json" multiple aria-hidden="true">
@@ -2267,7 +2267,7 @@
             <div class="control-group">
                 <button onclick="exportActiveLayers()" id="exportBtn">Export Active Layers</button>
                 <button class="primary" onclick="exportCurrentCoverageAsLayer()" id="exportManualBtn"
-                        title="Capture every active data component into a v18 layer JSON">
+                        title="Capture every active data component into a Detection Layer JSON">
                     Export Current Coverage as Layer
                 </button>
                 <button class="button-compare" onclick="showCompareModal()" id="compareBtn" disabled>Compare Layers (2)</button>
@@ -2329,6 +2329,26 @@
             <div class="compare-header">
                 <h2 id="settings-modal-title">Settings</h2>
                 <button class="close-modal" onclick="closeSettingsModal()" aria-label="Close settings">×</button>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-section-label">Sunburst Rings</div>
+                <label class="palette-option">
+                    <input type="radio" name="ring-layout" value="type"
+                           onchange="selectRingLayout('type')">
+                    <span class="palette-option-label">
+                        Type-grouped
+                        <span style="color:var(--text-muted); font-size:0.75rem;">— each ring is one primitive</span>
+                    </span>
+                </label>
+                <label class="palette-option">
+                    <input type="radio" name="ring-layout" value="tree"
+                           onchange="selectRingLayout('tree')">
+                    <span class="palette-option-label">
+                        Tree-depth
+                        <span style="color:var(--text-muted); font-size:0.75rem;">— rings shift inward when a technique has no sub-techniques</span>
+                    </span>
+                </label>
             </div>
 
             <div class="settings-section">
@@ -3150,10 +3170,11 @@
     // ============================================================================
     
     async function init() {
-        // PRE-LOAD: Set tab + palette before fetching data to prevent flicker
+        // PRE-LOAD: Set tab + palette + ring layout before fetching data to prevent flicker
         loadTabPreference();
         if (activeTab) switchTab(activeTab);
         loadPaletteSettings();
+        loadRingLayout();
         initSettingsTab();
 
         let lastError = null;
@@ -3168,7 +3189,7 @@
                     updateLoader("Trying fallback source...", "Attempting CDN mirror");
                     console.log('Primary URL failed, trying fallback:', currentUrl);
                 } else {
-                    updateLoader("Fetching MITRE v18 Data...", "Download in progress...");
+                    updateLoader("Fetching MITRE ATT&CK Data...", "Download in progress...");
                 }
                 
                 // Setup timeout for fetch
@@ -3212,7 +3233,7 @@
                     throw new Error('Invalid STIX data structure: missing "objects" array');
                 }
                 
-                console.log(`Successfully loaded MITRE v18 data: ${stixData.objects.length} objects`);
+                console.log(`Successfully loaded MITRE ATT&CK data: ${stixData.objects.length} objects`);
                 
                 updateLoader("Parsing STIX Bundle...", "Processing objects...");
                 
@@ -3252,7 +3273,7 @@
                 document.getElementById("loader").style.display = "none";
                 console.log("Visualization complete");
                 
-                NotificationSystem.success('Initialization Complete', `MITRE ATT&CK v18 data loaded successfully`);
+                NotificationSystem.success('Initialization Complete', `MITRE ATT&CK data loaded successfully`);
                 
                 // Success - exit the retry loop
                 return;
@@ -4603,7 +4624,7 @@
     }
 
     /**
-     * Walk the hierarchy and capture every active Data Component into a v18-schema
+     * Walk the hierarchy and capture every active Data Component into a Detection Layer schema
      * detection layer JSON. Active DCs are grouped by their (tactic, technique,
      * sub-technique, strategy, analytic) lineage so each detection rule in the
      * exported layer represents one analytic with its data components.
@@ -5087,6 +5108,9 @@
         const radios = document.querySelectorAll('input[name="palette-preset"]');
         radios.forEach(r => { r.checked = (r.value === activePresetName); });
 
+        const ringRadios = document.querySelectorAll('input[name="ring-layout"]');
+        ringRadios.forEach(r => { r.checked = (r.value === ringLayoutMode); });
+
         const customSection = document.getElementById('custom-palette-section');
         if (customSection) {
             customSection.style.display = activePresetName === 'custom' ? 'block' : 'none';
@@ -5201,6 +5225,107 @@
         return visible.slice(1); // Skip root
     }
 
+    // Ring layout mode — 'tree' (default; rings follow MITRE's natural tree
+    // depth — sub-techniques and direct strategies share Ring 3) or 'type'
+    // (each ring is one primitive; techniques without sub-techs extend through
+    // the sub-technique ring). Exposed in the Settings cog. Persisted to
+    // localStorage under `mitre_v18_ring_layout`.
+    let ringLayoutMode = 'tree';
+
+    function loadRingLayout() {
+        try {
+            const saved = localStorage.getItem('mitre_v18_ring_layout');
+            if (saved === 'tree' || saved === 'type') ringLayoutMode = saved;
+        } catch (e) { /* ignore */ }
+    }
+
+    function selectRingLayout(mode) {
+        if (mode !== 'tree' && mode !== 'type') mode = 'type';
+        if (mode === ringLayoutMode) return;
+        ringLayoutMode = mode;
+        try { localStorage.setItem('mitre_v18_ring_layout', mode); } catch (e) {}
+        syncSettingsTabUI();
+        // Full redraw — partition output and arc geometry both change.
+        if (fullDataset && initializationComplete) drawChart(fullDataset);
+    }
+
+    window.selectRingLayout = selectRingLayout;
+
+    /**
+     * Override each node's y0/y1 so the sunburst rings map 1:1 to primitive types
+     * instead of tree depth. Without this, a Technique with no Sub-Techniques would
+     * place its Detection Strategies on what should be the Sub-Technique ring,
+     * causing different slices of the same ring to show different primitive types.
+     *
+     *   Ring 1 = Tactic
+     *   Ring 2 = Technique
+     *   Ring 3 = Sub-Technique
+     *   Ring 4 = Detection Strategy
+     *   Ring 5 = Analytic
+     *   Ring 6 = Data Component
+     *
+     * Extension rule: when a Technique has zero Sub-Technique children (all its
+     * direct children are Strategies), we extend its outer radius through Ring 3.
+     * The Technique then renders as one contiguous wedge spanning Rings 2+3, and
+     * its child Strategies stay correctly anchored at Ring 4. The result is a
+     * visually intentional "no sub-technique on this slice" indicator rather than
+     * a confusing ring-shift.
+     *
+     * Note for the mixed case (a Technique with SOME sub-techs AND some direct
+     * Strategies): the direct-Strategy angular sub-slices will show an empty
+     * Ring 3 slot above them. This is a known visual gap; fixing it would require
+     * splitting the Technique into multiple angular arcs which is intentionally
+     * deferred for now.
+     */
+    function applyTypeDrivenRadius(rootNode) {
+        if (!rootNode || !radius) return;
+        // In tree mode, leave the y0/y1 values produced by d3.partition() untouched —
+        // each node sits at its natural tree depth (the pre-Option-2 behaviour).
+        if (ringLayoutMode === 'tree') return;
+        const RING_TYPES = [
+            'Tactic',             // Ring 1
+            'Technique',          // Ring 2
+            'Sub-Technique',      // Ring 3
+            'Detection Strategy', // Ring 4
+            'Analytic',           // Ring 5
+            'Data Component'      // Ring 6
+        ];
+        // Reserve the inner radius/4 as the centre hole (matches the existing
+        // clickable centre circle). Remaining radius divides equally across 6 rings.
+        const CENTRE_RADIUS = radius / 4;
+        const ringThickness = (radius - CENTRE_RADIUS) / RING_TYPES.length;
+        const ringInner = (ringNumber) => CENTRE_RADIUS + (ringNumber - 1) * ringThickness;
+        const ringOuter = (ringNumber) => CENTRE_RADIUS + ringNumber * ringThickness;
+
+        // First pass: assign every node its type-driven band.
+        rootNode.each(d => {
+            const type = d.data && d.data.type;
+            const idx = RING_TYPES.indexOf(type);
+            if (idx < 0) {
+                // Root or unknown — collapse to centre so it isn't rendered.
+                d.y0 = 0;
+                d.y1 = 0;
+                return;
+            }
+            const ringNumber = idx + 1; // 1..6
+            d.y0 = ringInner(ringNumber);
+            d.y1 = ringOuter(ringNumber);
+        });
+
+        // Second pass: extend Technique nodes through Ring 3 when they have no
+        // Sub-Technique children. Detected by checking direct children's types.
+        const subTechRing = RING_TYPES.indexOf('Sub-Technique') + 1; // 3
+        rootNode.each(d => {
+            if (!d.data || d.data.type !== 'Technique') return;
+            const hasSubTech = d.children && d.children.some(c =>
+                c.data && c.data.type === 'Sub-Technique'
+            );
+            if (!hasSubTech) {
+                d.y1 = ringOuter(subTechRing);
+            }
+        });
+    }
+
     function drawChart(data) {
         const container = document.getElementById("chart");
         const width = container.clientWidth;
@@ -5225,6 +5350,7 @@
 
         partition = d3.partition().size([2 * Math.PI, radius]);
         partition(root);
+        applyTypeDrivenRadius(root);
 
        arc = d3.arc()
         .startAngle(d => d.x0)
@@ -5285,6 +5411,7 @@
         requestAnimationFrame(() => {
             root = d3.hierarchy(fullDataset).sum(d => 1).sort((a, b) => b.value - a.value);
             partition(root);
+            applyTypeDrivenRadius(root);
             root.each(d => d.current = d);
 
             // Use filtered descendants to prevent rendering performance issues
@@ -5377,7 +5504,7 @@
      * Returns the public MITRE ATT&CK page URL for a d3 hierarchy node, or null
      * if the node type doesn't have a stable URL on attack.mitre.org.
      *
-     * All v18 primitives have pages as of the v18 release:
+     * All ATT&CK primitives currently have pages on attack.mitre.org:
      *   - Tactic             → /tactics/TAxxxx/
      *   - Technique          → /techniques/Txxxx/
      *   - Sub-Technique      → /techniques/Tparent/Tchild/

@@ -2384,6 +2384,19 @@
                     </span>
                 </label>
                 <label class="palette-option">
+                    <input type="radio" name="palette-preset" value="pride"
+                           onchange="selectPalettePreset('pride')">
+                    <span class="palette-option-label">Pride 🏳️‍🌈 <span style="color:var(--text-muted); font-size:0.75rem;">(rainbow gradient)</span></span>
+                    <span class="palette-option-swatches" aria-hidden="true">
+                        <span class="palette-swatch" style="background:#E40303;"></span>
+                        <span class="palette-swatch" style="background:#FF8C00;"></span>
+                        <span class="palette-swatch" style="background:#FFED00;"></span>
+                        <span class="palette-swatch" style="background:#008026;"></span>
+                        <span class="palette-swatch" style="background:#004CFF;"></span>
+                        <span class="palette-swatch" style="background:#732982;"></span>
+                    </span>
+                </label>
+                <label class="palette-option">
                     <input type="radio" name="palette-preset" value="custom"
                            onchange="selectPalettePreset('custom')">
                     <span class="palette-option-label">Custom</span>
@@ -4956,9 +4969,12 @@
     // PALETTE / THEMING
     // ============================================================================
     //
-    // Three named presets + a user-customisable Custom slot. Each preset defines:
+    // Named presets + a user-customisable Custom slot. Each preset defines:
     //   - coverageLow / coverageHigh: endpoints of the 10-stop coverage gradient
-    //     (auto-interpolated in Lab space via d3.interpolateLab).
+    //     (auto-interpolated in Lab space). OR alternatively:
+    //   - coverageStops: an array of 3+ hex stops, interpolated through every stop
+    //     in Lab space (used for non-monotonic palettes like Pride that need to
+    //     hit specific intermediate hues).
     //   - success / warning / danger: the informational semantic trio, written to
     //     the corresponding CSS variables on :root so every consumer (notifications,
     //     stat tiles, uncovered-list borders) updates without further wiring.
@@ -4983,6 +4999,14 @@
             coverageLow: '#1A1A1A', coverageHigh: '#E2E8F0',
             success: '#94A3B8', warning: '#E2E8F0', danger: '#FFFFFF',
             accent: '#10B981'
+        },
+        'pride': {
+            label: 'Pride 🏳️‍🌈',
+            // Classic 6-stripe Pride flag (red, orange, yellow, green, blue, violet).
+            // Gradient runs low coverage → high coverage across the rainbow.
+            coverageStops: ['#E40303', '#FF8C00', '#FFED00', '#008026', '#004CFF', '#732982'],
+            success: '#008026', warning: '#FF8C00', danger: '#E40303',
+            accent: '#732982'
         }
     };
 
@@ -4990,9 +5014,21 @@
     let activePalette = PALETTE_PRESETS['default'];
     let coverageStops = [];   // 10 hex strings, populated by applyPalette()
 
-    function regenerateCoverageStops(low, high) {
-        // d3.interpolateLab gives a perceptually-uniform ramp between two endpoints.
-        const interp = d3.interpolateLab(low, high);
+    function regenerateCoverageStops(palette) {
+        // Multi-stop palette (rainbow-style): use d3.scaleLinear with Lab interpolation
+        // to thread through every named stop. Two-stop palettes go through the same
+        // path; the single-segment case naturally falls back to a Lab linear ramp.
+        if (Array.isArray(palette.coverageStops) && palette.coverageStops.length >= 2) {
+            const stops = palette.coverageStops;
+            const scale = d3.scaleLinear()
+                .domain(stops.map((_, i) => i / (stops.length - 1)))
+                .range(stops)
+                .interpolate(d3.interpolateLab);
+            coverageStops = d3.range(10).map(i => d3.color(scale(i / 9)).formatHex());
+            return;
+        }
+        // Endpoint palette: straight Lab interpolation between coverageLow → coverageHigh.
+        const interp = d3.interpolateLab(palette.coverageLow, palette.coverageHigh);
         coverageStops = d3.range(10).map(i => d3.color(interp(i / 9)).formatHex());
     }
 
@@ -5029,7 +5065,7 @@
         root.style.setProperty('--accent-color', activePalette.accent);
         document.body.setAttribute('data-palette', presetName);
 
-        regenerateCoverageStops(activePalette.coverageLow, activePalette.coverageHigh);
+        regenerateCoverageStops(activePalette);
 
         if (path) {
             path.transition().duration(300)
@@ -5116,9 +5152,16 @@
             customSection.style.display = activePresetName === 'custom' ? 'block' : 'none';
         }
 
+        // Multi-stop palettes (Pride) don't have explicit coverageLow/High — derive
+        // endpoints from the first/last stop so the colour pickers always show
+        // something sensible if the user opens them.
+        const stops = activePalette.coverageStops;
+        const lowFallback  = (stops && stops[0]) || '#8B0000';
+        const highFallback = (stops && stops[stops.length - 1]) || '#388E3C';
+
         const pickerMap = {
-            'picker-coverage-low':  activePalette.coverageLow,
-            'picker-coverage-high': activePalette.coverageHigh,
+            'picker-coverage-low':  activePalette.coverageLow  || lowFallback,
+            'picker-coverage-high': activePalette.coverageHigh || highFallback,
             'picker-success':       activePalette.success,
             'picker-warning':       activePalette.warning,
             'picker-danger':        activePalette.danger,
@@ -5132,10 +5175,13 @@
 
     function selectPalettePreset(presetName) {
         if (presetName === 'custom') {
-            // Seed Custom from whatever's currently active so the user has a starting point.
+            // Seed Custom from whatever's currently active so the user has a starting
+            // point. Multi-stop palettes (Pride) collapse to first/last stop because
+            // Custom only supports two endpoints.
+            const stops = activePalette.coverageStops;
             const seed = {
-                coverageLow: activePalette.coverageLow,
-                coverageHigh: activePalette.coverageHigh,
+                coverageLow:  activePalette.coverageLow  || (stops && stops[0])                       || '#8B0000',
+                coverageHigh: activePalette.coverageHigh || (stops && stops[stops.length - 1])        || '#388E3C',
                 success: activePalette.success,
                 warning: activePalette.warning,
                 danger: activePalette.danger,
